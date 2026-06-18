@@ -33,14 +33,18 @@ export const api = {
     });
   },
 
-  async getLeads(limit: number = 50, offset: number = 0, mission_id?: string): Promise<Lead[]> {
+  async getLeads(
+    limit: number = 50,
+    offset: number = 0,
+    mission_id?: string,
+    status?: string
+  ): Promise<Lead[]> {
     const params = new URLSearchParams({
       limit: String(limit),
       offset: String(offset),
     });
-    if (mission_id) {
-      params.append('mission_id', mission_id);
-    }
+    if (mission_id) params.append('mission_id', mission_id);
+    if (status) params.append('status', status);
     return fetchJson<Lead[]>(`${BASE_URL}/api/leads?${params.toString()}`, {
       method: 'GET',
       next: { revalidate: 0 }
@@ -114,7 +118,29 @@ export const api = {
 
   async suggestMissionDetails(targetService: string): Promise<{ keywords: string[], used_fallback: boolean, communities: any[] }> {
     const params = new URLSearchParams({ target_service: targetService });
-    return fetchJson<{ keywords: string[], used_fallback: boolean, communities: any[] }>(`${BASE_URL}/api/missions/suggest?${params.toString()}`, {
+    // Note: endpoint renamed to /suggest-details to fix FastAPI route conflict
+    return fetchJson<{ keywords: string[], used_fallback: boolean, communities: any[] }>(`${BASE_URL}/api/missions/suggest-details?${params.toString()}`, {
+      method: 'GET',
+      next: { revalidate: 0 }
+    });
+  },
+
+  async scoutSubreddits(mission_id: string): Promise<{
+    mission_id: string;
+    mission_name: string;
+    keywords: string[];
+    suggestions: Array<{
+      id: string;
+      platform: string;
+      name: string;
+      display_name: string;
+      description: string;
+      url: string;
+      score: number;
+      already_added: boolean;
+    }>;
+  }> {
+    return fetchJson(`${BASE_URL}/api/sources/scout?mission_id=${mission_id}`, {
       method: 'GET',
       next: { revalidate: 0 }
     });

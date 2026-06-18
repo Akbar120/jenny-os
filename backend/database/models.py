@@ -96,3 +96,19 @@ class Log(Base):
     lead_id = Column(String, ForeignKey("leads.id"), nullable=True)
     mission_id = Column(String, ForeignKey("missions.id"), nullable=True)  # link log to mission
     details = Column(String, nullable=False)  # stored as json.dumps({...})
+
+class SyncRun(Base):
+    """Tracks each full-sweep run across all active mission sources."""
+    __tablename__ = "sync_runs"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    status = Column(String, nullable=False, default="RUNNING")  # RUNNING | COMPLETED | FAILED
+    triggered_by = Column(String, nullable=False, default="MANUAL")  # MANUAL (scheduler later)
+    started_at = Column(String, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    completed_at = Column(String, nullable=True)
+    total_sources = Column(Integer, nullable=False, default=0)   # total sources in queue
+    sources_done = Column(Integer, nullable=False, default=0)    # sources processed so far
+    leads_found = Column(Integer, nullable=False, default=0)     # total posts fetched
+    leads_qualified = Column(Integer, nullable=False, default=0) # QUALIFIED leads added
+    leads_skipped = Column(Integer, nullable=False, default=0)   # duplicates skipped
+    error_summary = Column(String, nullable=True)                # JSON: {source_id: [errors]}

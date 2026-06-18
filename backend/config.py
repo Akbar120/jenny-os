@@ -11,18 +11,24 @@ def get_settings() -> Dict[str, Any]:
             return json.load(f)
     except Exception:
         return {
+            "ai_provider": "ollama",
             "ollama_url": "http://localhost:11434",
             "model_name": "gemma3:4b",
-            "score_threshold": 7
+            "ai_api_key": "",
+            "score_threshold": 7,
         }
 
 def __getattr__(name: str) -> Any:
-    """Supports dynamic lookup of settings like OLLAMA_URL, MODEL_NAME, SCORE_THRESHOLD."""
+    """Supports dynamic lookup: config.OLLAMA_URL, config.MODEL_NAME, etc."""
     settings = get_settings()
     if name == "OLLAMA_URL":
         return settings.get("ollama_url", "http://localhost:11434")
     elif name == "MODEL_NAME":
         return settings.get("model_name", "gemma3:4b")
+    elif name == "AI_PROVIDER":
+        return settings.get("ai_provider", "ollama")
+    elif name == "AI_API_KEY":
+        return settings.get("ai_api_key", "")
     elif name == "SCORE_THRESHOLD":
         try:
             return int(settings.get("score_threshold", 7))

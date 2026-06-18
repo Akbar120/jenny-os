@@ -23,53 +23,183 @@ def clean_list(input_str: str) -> list[str]:
     if not input_str:
         return []
     items = []
-    # Split by comma or newline
     for raw in re.split(r'[,\n]', input_str):
         cleaned = raw.strip().strip('"\'*-[].()')
         if cleaned:
             items.append(cleaned)
     return items
 
-def generate_keywords(target_service: str) -> tuple[list[str], bool]:
-    """Queries Ollama to generate keywords for a service.
-    
-    Raises:
-        ValueError: If model settings are not configured.
-        RuntimeError: If Ollama is offline, unreachable, or fails.
+
+# ---------------------------------------------------------------------------
+# Provider-specific callers
+# ---------------------------------------------------------------------------
+
+def _call_ollama(prompt: str, model: str, ollama_url: str) -> str:
+    """Calls local Ollama API. Returns raw text response."""
+    url = f"{ollama_url.rstrip('/')}/api/generate"
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "options": {"temperature": 0.3}
+    }
+    response = httpx.post(url, json=payload, timeout=30.0)
+    if response.status_code == 200:
+        return response.json().get("response", "")
+    raise RuntimeError(f"Ollama returned status {response.status_code}: {response.text[:200]}")
+
+
+def _call_openai_compatible(prompt: str, model: str, api_key: str, base_url: str) -> str:
     """
-    ollama_url = config.OLLAMA_URL
-    model = config.MODEL_NAME
-    
-    if not ollama_url or not model or not ollama_url.strip() or not model.strip():
-        raise ValueError("Ollama URL and model name must be configured in Settings first.")
-        
-    url = f"{ollama_url}/api/generate"
+    Calls any OpenAI-compatible API (OpenAI, OpenRouter, etc.).
+    base_url examples:
+      OpenAI:     https://api.openai.com/v1
+      OpenRouter: https://openrouter.ai/api/v1
+    """
+    url = f"{base_url.rstrip('/')}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    # OpenRouter needs an extra header
+    if "openrouter" in base_url:
+        headers["HTTP-Referer"] = "https://jenny-os.local"
+        headers["X-Title"] = "Jenny OS"
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.3,
+    }
+    response = httpx.post(url, json=payload, headers=headers, timeout=30.0)
+    if response.status_code == 200:
+        return response.json()["choices"][0]["message"]["content"]
+    raise RuntimeError(
+        f"API returned status {response.status_code}: {response.text[:300]}"
+    )
+
+
+def _call_anthropic(prompt: str, model: str, api_key: str) -> str:
+    """Calls Anthropic Claude API."""
+    url = "https://api.anthropic.com/v1/messages"
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "max_tokens": 256,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    response = httpx.post(url, json=payload, headers=headers, timeout=30.0)
+    if response.status_code == 200:
+        return response.json()["content"][0]["text"]
+    raise RuntimeError(
+        f"Anthropic API returned status {response.status_code}: {response.text[:300]}"
+    )
+
+
+def _call_google(prompt: str, model: str, api_key: str) -> str:
+    """Calls Google Gemini API."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 256},
+    }
+    response = httpx.post(url, json=payload, timeout=30.0)
+    if response.status_code == 200:
+        return response.json()["candidates"][0]["content"]["parts"][0]["text"]
+    raise RuntimeError(
+        f"Google Gemini API returned status {response.status_code}: {response.text[:300]}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Main dispatcher
+# ---------------------------------------------------------------------------
+
+def _call_llm(prompt: str) -> str:
+    """
+    Routes the LLM call to the correct provider based on settings.
+    Reads provider, model, and credentials from config dynamically.
+    """
+    settings = config.get_settings()
+    provider = settings.get("ai_provider", "ollama").lower()
+    model = settings.get("model_name", "")
+    api_key = settings.get("ai_api_key", "")
+    ollama_url = settings.get("ollama_url", "http://localhost:11434")
+
+    if not model:
+        raise ValueError("Model name is not configured in Settings.")
+
+    if provider == "ollama":
+        if not ollama_url:
+            raise ValueError("Ollama URL must be configured in Settings.")
+        return _call_ollama(prompt, model, ollama_url)
+
+    elif provider == "openai":
+        if not api_key:
+            raise ValueError("OpenAI API key is not configured in Settings.")
+        return _call_openai_compatible(prompt, model, api_key, "https://api.openai.com/v1")
+
+    elif provider == "openrouter":
+        if not api_key:
+            raise ValueError("OpenRouter API key is not configured in Settings.")
+        return _call_openai_compatible(prompt, model, api_key, "https://openrouter.ai/api/v1")
+
+    elif provider == "anthropic":
+        if not api_key:
+            raise ValueError("Anthropic API key is not configured in Settings.")
+        return _call_anthropic(prompt, model, api_key)
+
+    elif provider == "google":
+        if not api_key:
+            raise ValueError("Google Gemini API key is not configured in Settings.")
+        return _call_google(prompt, model, api_key)
+
+    else:
+        raise ValueError(f"Unknown AI provider: '{provider}'. Valid options: ollama, openai, openrouter, anthropic, google.")
+
+
+# ---------------------------------------------------------------------------
+# Public: generate_keywords
+# ---------------------------------------------------------------------------
+
+def generate_keywords(target_service: str) -> tuple[list[str], bool]:
+    """
+    Generates keywords for a service using the configured AI provider.
+
+    Returns:
+        (keywords: list[str], used_fallback: bool)
+
+    Raises:
+        ValueError: If settings are missing.
+        RuntimeError: If the AI provider call fails.
+    """
     prompt = (
         f"Generate a simple list of 5-8 search keywords for finding freelance work or clients "
         f"who need a '{target_service}'. Respond ONLY with a comma-separated list of keywords. "
         f"Do not include any introductory text, bullet points, or markdown formatting."
     )
-    
+
     try:
-        payload = {
-            "model": model,
-            "prompt": prompt,
-            "stream": False,
-            "options": {"temperature": 0.3}
-        }
-        response = httpx.post(url, json=payload, timeout=30.0)
-        if response.status_code == 200:
-            result = response.json().get("response", "")
-            raw_items = clean_list(result)
-            keywords = [k.lower() for k in raw_items if k]
-            if len(keywords) >= 3:
-                return keywords, False
-            raise RuntimeError("Ollama returned too few keywords. Please try again.")
-        else:
-            raise RuntimeError(f"Ollama returned status code {response.status_code}.")
+        raw_text = _call_llm(prompt)
+        raw_items = clean_list(raw_text)
+        keywords = [k.lower() for k in raw_items if k]
+        if len(keywords) >= 3:
+            return keywords, False
+        raise RuntimeError("AI returned too few keywords. Please try again.")
+    except (ValueError, RuntimeError):
+        raise
     except Exception as e:
-        logger.error(f"Ollama keyword generation failed: {e}")
-        raise RuntimeError("Ollama model is offline or unreachable. Please connect/start your local Ollama model first.")
+        logger.error(f"AI keyword generation failed: {e}")
+        raise RuntimeError(f"AI model call failed: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Subreddit Discovery (unchanged below — no LLM involved)
+# ---------------------------------------------------------------------------
 
 from html.parser import HTMLParser
 
@@ -78,156 +208,115 @@ class RedditSubredditParser(HTMLParser):
         super().__init__()
         self.in_subreddit = False
         self.in_title = False
-        self.in_description = False
-        self.in_md = False
-        self.depth_description = 0
-        self.current_item = {}
+        self.current_name = None
+        self.current_desc = ""
         self.results = []
-        
+
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
-        cls = attrs_dict.get("class", "")
-        
-        # Check if we are starting a subreddit item
-        if tag == "div" and "subreddit" in cls and "thing" in cls:
+        if tag == "div" and "search-result-subreddit" in attrs_dict.get("class", ""):
             self.in_subreddit = True
-            self.current_item = {"name": "", "display_name": "", "description": "", "url": ""}
-            
-        if self.in_subreddit:
-            if tag == "a" and cls == "title":
-                self.in_title = True
-                href = attrs_dict.get("href", "")
-                match = re.search(r'/r/([^/]+)/?', href)
-                if match:
-                    self.current_item["name"] = match.group(1)
-                    self.current_item["display_name"] = f"r/{match.group(1)}"
-                    self.current_item["url"] = f"https://www.reddit.com/r/{match.group(1)}/"
-            
-            elif tag == "div" and cls == "description":
-                self.in_description = True
-                self.depth_description = 1
-                
-            elif self.in_description:
-                self.depth_description += 1
-                if tag == "div" and "md" in cls:
-                    self.in_md = True
+            self.current_desc = ""
+            self.current_name = None
+        if self.in_subreddit and tag == "a" and "search-result-link" in attrs_dict.get("class", ""):
+            href = attrs_dict.get("href", "")
+            if "/r/" in href:
+                parts = href.strip("/").split("/")
+                if "r" in parts:
+                    self.current_name = parts[parts.index("r") + 1]
 
     def handle_endtag(self, tag):
-        if self.in_subreddit:
-            if tag == "a" and self.in_title:
-                self.in_title = False
-                
-            elif self.in_description:
-                self.depth_description -= 1
-                if self.depth_description == 0:
-                    self.in_description = False
-                    self.in_md = False
-                    # Subreddit item is complete
-                    if self.current_item.get("name"):
-                        self.results.append(self.current_item)
-                    self.in_subreddit = False
-                elif tag == "div" and self.in_md:
-                    self.in_md = False
+        if tag == "div" and self.in_subreddit and self.current_name:
+            self.results.append({
+                "name": self.current_name,
+                "description": self.current_desc.strip()
+            })
+            self.in_subreddit = False
+            self.current_name = None
 
     def handle_data(self, data):
         if self.in_subreddit:
-            if self.in_md:
-                self.current_item["description"] += data
-            elif self.in_description and not self.current_item["description"]:
-                cleaned = data.strip()
-                if cleaned and not cleaned.startswith("post_form") and not cleaned.startswith("thing_id"):
-                    self.current_item["description"] += " " + cleaned
+            self.current_desc += " " + data.strip()
+
 
 def search_reddit_subreddits(keyword: str) -> list[dict]:
-    """Queries old.reddit.com's public search page and parses subreddits matching the keyword."""
-    url = f"https://old.reddit.com/subreddits/search?q={keyword}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+    """Searches Reddit for subreddits matching a keyword via public search."""
     try:
-        response = httpx.get(url, headers=headers, timeout=10.0)
-        if response.status_code == 200:
-            parser = RedditSubredditParser()
-            parser.feed(response.text)
-            
-            results = []
-            for item in parser.results[:8]:
-                name = item["name"]
-                desc = re.sub(r'\s+', ' ', item["description"]).strip()
+        url = f"https://www.reddit.com/subreddits/search.json?q={keyword}&limit=8"
+        headers = {"User-Agent": "Jenny-OS/1.0 subreddit-scout"}
+        response = httpx.get(url, headers=headers, timeout=10.0, follow_redirects=True)
+        if response.status_code != 200:
+            return []
+        data = response.json()
+        results = []
+        for child in data.get("data", {}).get("children", []):
+            sub = child.get("data", {})
+            name = sub.get("display_name", "")
+            desc = sub.get("public_description", "") or sub.get("title", "")
+            if name:
                 results.append({
-                    "id": f"reddit_dynamic_{name}",
                     "platform": "reddit",
-                    "name": name,
+                    "name": name.lower(),
                     "display_name": f"r/{name}",
-                    "description": desc or "Dynamically discovered Reddit community",
-                    "url": f"https://www.reddit.com/r/{name}/"
+                    "description": desc[:150],
+                    "url": f"https://reddit.com/r/{name}",
+                    "score": 0
                 })
-            return results
+        return results[:8]
     except Exception as e:
-        logger.warning(f"Reddit subreddit HTML search failed for keyword '{keyword}': {e}")
-    return []
+        logger.warning(f"Reddit subreddit search failed for '{keyword}': {e}")
+        return []
+
 
 def discover_communities(target_service: str, keywords: list[str]) -> list[dict]:
-    """Scans community_registry.json and dynamically searches Reddit to return relevant communities ranked by score."""
+    """
+    Discovers and ranks relevant communities (Reddit subreddits + Discord) for a target service.
+    Uses community_registry.json as the primary source, then supplements with live Reddit search.
+    """
     registry = get_community_registry()
-    kw_set = {k.lower().strip() for k in keywords if k.strip()}
-    
+    kw_set = {k.lower() for k in keywords}
+
     matches = []
     seen_names = set()
-    
-    # 1. Gather registry matches
-    if registry:
-        for entry in registry:
-            entry_kws = {k.lower().strip() for k in entry.get("keywords", [])}
-            overlap = kw_set.intersection(entry_kws)
-            score = len(overlap)
-            
-            if score > 0:
-                name_key = entry.get("name", "").lower().strip()
-                seen_names.add(name_key)
-                matches.append({
-                    "id": entry.get("id"),
-                    "platform": entry.get("platform"),
-                    "name": entry.get("name"),
-                    "display_name": entry.get("display_name"),
-                    "description": entry.get("description"),
-                    "url": entry.get("url"),
-                    "score": score
-                })
-                
-    # 2. Dynamic Reddit Search for all keywords (deduplicated to prevent rate limits)
+
+    # 1. Score communities from static registry
+    for community in registry:
+        name_key = community.get("name", "").lower()
+        if name_key in seen_names:
+            continue
+
+        text_to_match = f"{community.get('name', '')} {community.get('description', '')} {' '.join(community.get('tags', []))}".lower()
+        score = sum(1 for kw in kw_set if kw in text_to_match)
+
+        if score > 0:
+            seen_names.add(name_key)
+            matches.append({**community, "score": score})
+
+    # 2. Dynamic Reddit search for all keywords (deduped)
     dynamic_subreddits = []
     searched_kws: set[str] = set()
     for kw in keywords:
-        # Skip very short or duplicate keywords
         if len(kw) < 3 or kw in searched_kws:
             continue
         searched_kws.add(kw)
         results = search_reddit_subreddits(kw)
         dynamic_subreddits.extend(results)
-        
-    # Deduplicate and score dynamic subreddits
+
     for sub in dynamic_subreddits:
-        name_key = sub["name"].lower().strip()
+        name_key = sub.get("name", "").lower()
         if name_key in seen_names:
             continue
         seen_names.add(name_key)
-        
-        # Proper overlap score: count how many mission keywords appear in subreddit name+description
+
+        # Proper overlap score
         text_to_match = f"{sub['name']} {sub['description']}".lower()
         sub_score = sum(1 for kw in kw_set if kw in text_to_match)
-        # A subreddit matched the search query, give it at least 1 point
         if sub_score == 0:
             sub_score = 1
-            
+
         sub["score"] = sub_score
         matches.append(sub)
-        
-    # Sort by score descending
-    matches.sort(key=lambda x: x["score"], reverse=True)
-    return matches
 
-def discover_subreddits(target_service: str, keywords: list[str]) -> list[str]:
-    """Backward-compatible function returning just subreddit names."""
-    communities = discover_communities(target_service, keywords)
-    return [c["name"] for c in communities if c["platform"] == "reddit"]
+    # Sort by score descending
+    matches.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return matches

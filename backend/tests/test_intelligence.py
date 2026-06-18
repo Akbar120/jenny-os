@@ -45,7 +45,8 @@ def test_suggest_endpoint_offline_error():
     # Force Ollama to be offline by patching httpx.post to raise an exception
     with patch("httpx.post", side_effect=httpx.ConnectError("Ollama offline")):
         client = TestClient(app)
-        response = client.get("/api/missions/suggest?target_service=3D%20Character%20Artist")
+        # Endpoint renamed to /suggest-details to fix FastAPI route conflict
+        response = client.get("/api/missions/suggest-details?target_service=3D%20Character%20Artist")
         assert response.status_code == 500
         assert "Ollama model is offline" in response.json()["detail"]
 
@@ -59,7 +60,8 @@ def test_suggest_endpoint_online():
 
     with patch("httpx.post", return_value=MockResponse()):
         client = TestClient(app)
-        response = client.get("/api/missions/suggest?target_service=3D%20Character%20Artist")
+        # Endpoint renamed to /suggest-details to fix FastAPI route conflict
+        response = client.get("/api/missions/suggest-details?target_service=3D%20Character%20Artist")
         assert response.status_code == 200
         data = response.json()
         assert "keywords" in data

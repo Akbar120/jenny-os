@@ -84,13 +84,18 @@ export interface AnalyzeResponse {
   lead: Lead;
 }
 
+export type AIProvider = 'ollama' | 'openai' | 'openrouter' | 'anthropic' | 'google';
+
 export interface SettingsPayload {
-  ollama_url: string;
+  ai_provider: AIProvider;
   model_name: string;
-  score_threshold: number;     // 0–10
+  ai_api_key?: string;          // Required for cloud providers; blank for Ollama
+  ollama_url?: string;          // Required for Ollama; ignored for cloud
+  score_threshold: number;      // 0–10
   reddit_client_id?: string;
   reddit_client_secret?: string;
 }
+
 
 export interface Source {
   id: string;

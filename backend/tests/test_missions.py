@@ -50,28 +50,29 @@ def test_mission_service_crud(db_session):
 def test_mission_based_lead_hunter():
     agent = MissionBasedLeadHunter()
     keywords = ["character artist", "metahuman", "stylized character", "3d artist"]
-    
-    # Case 1: 0 keywords matched
+
+    # Case 1: 0 keywords matched, but has hire indicator 'need'
+    # No keyword match → relevance_score = 0, no hire bonus since no service_match
     res0 = agent.analyze("I need a video editor for youtube.", keywords=keywords)
     assert res0["relevance_score"] == 0
     assert res0["service_match"] is False
-    assert res0["intent"] == "hire"  # contains hiring indicator 'need'
-    
-    # Case 2: 1 keyword matched
+    assert res0["intent"] == "hire"  # 'need' is a hire indicator
+
+    # Case 2: 1 keyword matched ("3d artist") + hire intent → base 3 + bonus 2 = 5
     res1 = agent.analyze("Looking for a 3d artist.", keywords=keywords)
-    assert res1["relevance_score"] == 3
+    assert res1["relevance_score"] == 5  # 3 base + 2 hire bonus
     assert res1["service_match"] is True
     assert res1["intent"] == "hire"
-    
-    # Case 3: 2 keywords matched
+
+    # Case 3: 2 keywords matched + hire intent → base 5 + bonus 2 = 7
     res2 = agent.analyze("Need a 3d artist who specializes in character artist designs.", keywords=keywords)
-    assert res2["relevance_score"] == 5
+    assert res2["relevance_score"] == 7  # 5 base + 2 hire bonus
     assert res2["service_match"] is True
     assert res2["intent"] == "hire"
-    
-    # Case 4: 3+ keywords matched
+
+    # Case 4: 3+ keywords matched + hire intent → base 8 + bonus 2 = 10 (capped)
     res3 = agent.analyze("We are hiring a stylized character designer. Must be a 3d artist and metahuman expert.", keywords=keywords)
-    assert res3["relevance_score"] == 8
+    assert res3["relevance_score"] == 10  # 8 base + 2 hire bonus, capped at 10
     assert res3["service_match"] is True
     assert res3["intent"] == "hire"
 
