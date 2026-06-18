@@ -181,7 +181,7 @@ export const api = {
   },
 
   async getCurrentRun(): Promise<{ status: string; run: { run_id: string; status: string; total_sources: number; sources_done: number; leads_qualified: number; leads_skipped: number; progress_pct: number; started_at: string } | null }> {
-    return fetchJson(`${BASE_URL}/api/runs/current`, { method: 'GET' });
+    return fetchJson(`${BASE_URL}/api/runs/status`, { method: 'GET' });
   },
 
   async getRunHistory(): Promise<Array<{ run_id: string; status: string; triggered_by: string; started_at: string; completed_at: string; total_sources: number; sources_done: number; leads_qualified: number; leads_skipped: number; had_errors: boolean }>> {

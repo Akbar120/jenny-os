@@ -35,7 +35,7 @@ def trigger_run(db: Session = Depends(get_db)):
         )
 
 
-@router.get("/current")
+@router.get("/status")
 def get_current_run(db: Session = Depends(get_db)):
     """
     Returns the currently RUNNING sync run with live progress,
