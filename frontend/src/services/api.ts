@@ -174,4 +174,17 @@ export const api = {
       method: 'POST',
     });
   },
+
+  // Full Sweep Run Endpoints
+  async triggerRun(): Promise<{ run_id: string; status: string; total_sources: number; message: string }> {
+    return fetchJson(`${BASE_URL}/api/runs/trigger`, { method: 'POST' });
+  },
+
+  async getCurrentRun(): Promise<{ status: string; run: { run_id: string; status: string; total_sources: number; sources_done: number; leads_qualified: number; leads_skipped: number; progress_pct: number; started_at: string } | null }> {
+    return fetchJson(`${BASE_URL}/api/runs/current`, { method: 'GET' });
+  },
+
+  async getRunHistory(): Promise<Array<{ run_id: string; status: string; triggered_by: string; started_at: string; completed_at: string; total_sources: number; sources_done: number; leads_qualified: number; leads_skipped: number; had_errors: boolean }>> {
+    return fetchJson(`${BASE_URL}/api/runs`, { method: 'GET' });
+  },
 };

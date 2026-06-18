@@ -49,7 +49,7 @@ const PROVIDERS: Record<AIProvider, ProviderMeta> = {
   openrouter: {
     label: 'OpenRouter',
     icon: '🔀',
-    color: 'border-violet-800 bg-violet-950/20',
+    color: 'border-teal-800 bg-teal-950/20',
     needsApiKey: true,
     needsOllamaUrl: false,
     defaultModel: 'meta-llama/llama-3.1-8b-instruct:free',

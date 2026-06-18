@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../services/api';
 import { Mission, Source, SyncResult } from '../../types';
 
@@ -10,12 +10,29 @@ export default function SourcesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Syncing states
+  // Per-source sync states
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [showSyncResultModal, setShowSyncResultModal] = useState(false);
 
-  // Modal drawer state
+  // Full sweep run states
+  const [isRunning, setIsRunning] = useState(false);
+  const [runProgress, setRunProgress] = useState<{
+    sources_done: number;
+    total_sources: number;
+    leads_qualified: number;
+    leads_skipped: number;
+    progress_pct: number;
+  } | null>(null);
+  const [lastRunResult, setLastRunResult] = useState<{
+    leads_qualified: number;
+    leads_skipped: number;
+    completed_at: string;
+  } | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Add source modal state
   const [isOpen, setIsOpen] = useState(false);
   const [selectedMissionId, setSelectedMissionId] = useState('');
   const [subreddit, setSubreddit] = useState('');
@@ -33,8 +50,6 @@ export default function SourcesPage() {
       setMissions(missionsData);
       setSources(sourcesData);
       setError(null);
-      
-      // Auto-select first mission in form if available
       if (missionsData.length > 0) {
         setSelectedMissionId(missionsData[0].id);
       }
@@ -45,9 +60,69 @@ export default function SourcesPage() {
     }
   }, []);
 
+  const startPolling = useCallback(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const data = await api.getCurrentRun();
+        if (data.status === 'RUNNING' && data.run) {
+          setRunProgress(data.run);
+        } else {
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
+          setIsRunning(false);
+          setRunProgress(null);
+          // Load last run result to show the result banner
+          const history = await api.getRunHistory();
+          if (history.length > 0) {
+            const last = history[0];
+            setLastRunResult({
+              leads_qualified: last.leads_qualified,
+              leads_skipped: last.leads_skipped,
+              completed_at: last.completed_at,
+            });
+          }
+          // Refresh sources list to update last_synced_at
+          const sourcesData = await api.getSources();
+          setSources(sourcesData);
+        }
+      } catch {
+        clearInterval(pollRef.current!);
+        pollRef.current = null;
+        setIsRunning(false);
+      }
+    }, 2000);
+  }, []);
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    // On mount: check if a run is already in progress
+    api.getCurrentRun().then((data) => {
+      if (data.status === 'RUNNING' && data.run) {
+        setIsRunning(true);
+        setRunProgress(data.run);
+        startPolling();
+      }
+    }).catch(() => {});
+  }, [fetchData, startPolling]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  const handleRunAgent = async () => {
+    setRunError(null);
+    setLastRunResult(null);
+    try {
+      await api.triggerRun();
+      setIsRunning(true);
+      setRunProgress({ sources_done: 0, total_sources: 0, leads_qualified: 0, leads_skipped: 0, progress_pct: 0 });
+      startPolling();
+    } catch (err: any) {
+      setRunError(err.message || 'Failed to start run.');
+    }
+  };
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     try {
@@ -67,7 +142,6 @@ export default function SourcesPage() {
       const result = await api.syncSource(id);
       setSyncResult(result);
       setShowSyncResultModal(true);
-      // Reload sources to refresh synced times & status
       const sourcesData = await api.getSources();
       setSources(sourcesData);
     } catch (err: any) {
@@ -87,10 +161,8 @@ export default function SourcesPage() {
       setSubmitError('Subreddit name is required.');
       return;
     }
-
     setSubmitting(true);
     setSubmitError(null);
-
     try {
       const newSource = await api.createSource({
         mission_id: selectedMissionId,
@@ -100,7 +172,6 @@ export default function SourcesPage() {
           limit,
         },
       });
-
       setSources((prev) => [...prev, newSource]);
       setSubreddit('');
       setLimit(25);
@@ -118,8 +189,9 @@ export default function SourcesPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 min-h-screen text-zinc-300">
-      {/* Header section */}
-      <div className="flex items-center justify-between">
+
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-zinc-100 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
             Source Connectors
@@ -128,19 +200,125 @@ export default function SourcesPage() {
             Configure external feeds and channels to automatically ingest and qualify leads.
           </p>
         </div>
-        <button
-          id="btn-add-source-connector"
-          onClick={() => setIsOpen(true)}
-          disabled={missions.length === 0}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:from-zinc-800 disabled:to-zinc-900 disabled:text-zinc-600 text-zinc-950 font-semibold text-sm rounded-lg shadow-lg hover:shadow-cyan-500/10 active:scale-[0.98] transition-all duration-200"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          Add Source Connector
-        </button>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-3 shrink-0">
+          {/* ▶ Run Agent — full sweep */}
+          <button
+            id="btn-run-agent"
+            onClick={handleRunAgent}
+            disabled={isRunning || sources.length === 0}
+            className={`flex items-center gap-2 px-5 py-2.5 font-semibold text-sm rounded-lg shadow-lg active:scale-[0.98] transition-all duration-200 ${
+              isRunning
+                ? 'bg-emerald-950/40 border border-emerald-700/40 text-emerald-400 cursor-wait'
+                : sources.length === 0
+                ? 'bg-zinc-900 border border-zinc-800 text-zinc-600 cursor-not-allowed'
+                : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-zinc-950 hover:shadow-emerald-500/20'
+            }`}
+          >
+            {isRunning ? (
+              <>
+                <div className="w-4 h-4 border-2 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin" />
+                Running...
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+                </svg>
+                Run Agent
+              </>
+            )}
+          </button>
+
+          {/* + Add Source Connector */}
+          <button
+            id="btn-add-source-connector"
+            onClick={() => setIsOpen(true)}
+            disabled={missions.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:from-zinc-800 disabled:to-zinc-900 disabled:text-zinc-600 text-zinc-950 font-semibold text-sm rounded-lg shadow-lg hover:shadow-cyan-500/10 active:scale-[0.98] transition-all duration-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Add Source
+          </button>
+        </div>
       </div>
 
+      {/* ── Run Error Banner ── */}
+      {runError && (
+        <div className="p-4 rounded-xl border border-rose-900/30 bg-rose-950/10 text-rose-400 text-sm flex items-center gap-3">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 shrink-0">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+          </svg>
+          {runError}
+        </div>
+      )}
+
+      {/* ── Live Progress Bar — visible while RUNNING ── */}
+      {isRunning && runProgress && (
+        <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/10 p-4 space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+              <div className="w-3 h-3 border-2 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin" />
+              Agent Running — Full Sweep in Progress
+            </div>
+            <span className="text-emerald-400/70 font-mono text-xs">
+              {runProgress.sources_done} / {runProgress.total_sources || '?'} sources
+            </span>
+          </div>
+          <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700"
+              style={{ width: `${Math.max(4, runProgress.progress_pct)}%` }}
+            />
+          </div>
+          <div className="flex items-center gap-5 text-xs text-zinc-500 font-mono">
+            <span>🟢 Qualified so far: <span className="text-emerald-400 font-bold">{runProgress.leads_qualified}</span></span>
+            <span>⏭ Skipped (dupes): {runProgress.leads_skipped ?? 0}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Last Run Result Banner — visible after COMPLETED ── */}
+      {!isRunning && lastRunResult && (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-zinc-200">Sweep Complete</p>
+              <p className="text-xs text-zinc-500 font-mono">
+                {new Date(lastRunResult.completed_at).toLocaleString()}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-6 font-mono">
+            <div className="text-center">
+              <span className="block text-2xl font-bold text-emerald-400">{lastRunResult.leads_qualified}</span>
+              <span className="text-[10px] text-zinc-500 uppercase">Qualified Leads</span>
+            </div>
+            <div className="text-center">
+              <span className="block text-2xl font-bold text-zinc-500">{lastRunResult.leads_skipped}</span>
+              <span className="text-[10px] text-zinc-500 uppercase">Skipped (dupes)</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setLastRunResult(null)}
+            className="text-zinc-600 hover:text-zinc-400 transition-colors ml-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* ── Main Content: Source Cards ── */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
           <div className="w-12 h-12 rounded-full border-4 border-zinc-800 border-t-cyan-500 animate-spin" />
@@ -179,7 +357,7 @@ export default function SourcesPage() {
                 key={src.id}
                 className="border border-zinc-900 rounded-2xl bg-zinc-950/40 backdrop-blur-md hover:border-zinc-800 transition-all duration-300 overflow-hidden flex flex-col"
               >
-                {/* Header */}
+                {/* Card Header */}
                 <div className="p-6 border-b border-zinc-900 flex items-start justify-between gap-4">
                   <div className="space-y-1">
                     <span className="inline-flex items-center gap-1 text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20">
@@ -188,15 +366,13 @@ export default function SourcesPage() {
                       </svg>
                       {src.source_type}
                     </span>
-                    <h3 className="font-semibold text-zinc-200 mt-2">
-                      r/{src.config.subreddit}
-                    </h3>
+                    <h3 className="font-semibold text-zinc-200 mt-2">r/{src.config.subreddit}</h3>
                     <p className="text-xs text-zinc-500 font-medium">
                       Campaign: <span className="text-zinc-400">{getMissionName(src.mission_id)}</span>
                     </p>
                   </div>
 
-                  {/* Toggle */}
+                  {/* Active Toggle */}
                   <button
                     onClick={() => handleToggleActive(src.id, src.is_active)}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
@@ -211,7 +387,7 @@ export default function SourcesPage() {
                   </button>
                 </div>
 
-                {/* Details */}
+                {/* Card Details */}
                 <div className="p-6 space-y-4 flex-1">
                   <div className="grid grid-cols-2 gap-4 text-xs font-mono">
                     <div className="bg-zinc-900/30 border border-zinc-900 p-2.5 rounded-lg">
@@ -224,7 +400,6 @@ export default function SourcesPage() {
                     </div>
                   </div>
 
-                  {/* Status & Health Indicators */}
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-zinc-500">Last Sync:</span>
@@ -232,7 +407,6 @@ export default function SourcesPage() {
                         {src.last_synced_at ? new Date(src.last_synced_at).toLocaleString() : 'Never'}
                       </span>
                     </div>
-
                     <div className="flex items-center justify-between">
                       <span className="text-zinc-500">Sync Status:</span>
                       {src.last_sync_status === 'SUCCESS' ? (
@@ -246,10 +420,9 @@ export default function SourcesPage() {
                           Failed
                         </span>
                       ) : (
-                        <span className="text-zinc-500">Pending Sync</span>
+                        <span className="text-zinc-500">Never Synced</span>
                       )}
                     </div>
-
                     {src.last_error && (
                       <div className="p-2.5 mt-2 rounded bg-rose-950/15 border border-rose-900/20 text-rose-400/90 text-[11px] leading-relaxed max-h-20 overflow-y-auto font-mono">
                         {src.last_error}
@@ -258,7 +431,7 @@ export default function SourcesPage() {
                   </div>
                 </div>
 
-                {/* Footer Sync Button */}
+                {/* Footer: individual Sync Now */}
                 <div className="p-6 border-t border-zinc-900 bg-zinc-950/20">
                   <button
                     onClick={() => handleSyncSource(src.id)}
@@ -274,14 +447,14 @@ export default function SourcesPage() {
                     {isSyncing ? (
                       <>
                         <div className="w-4 h-4 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" />
-                        Syncing Feeds...
+                        Syncing...
                       </>
                     ) : (
                       <>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
                         </svg>
-                        Sync Now
+                        Sync This Source
                       </>
                     )}
                   </button>
@@ -292,7 +465,7 @@ export default function SourcesPage() {
         </div>
       )}
 
-      {/* Sync Result Modal */}
+      {/* ── Per-Source Sync Result Modal ── */}
       {showSyncResultModal && syncResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm">
           <div className="w-full max-w-md bg-zinc-950 border border-zinc-900 rounded-2xl shadow-2xl p-6 space-y-6">
@@ -304,17 +477,17 @@ export default function SourcesPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-zinc-100">Sync Completed</h3>
-                <p className="text-xs text-zinc-500 font-mono">TASK EXECUTION SUCCESSFUL</p>
+                <p className="text-xs text-zinc-500 font-mono">SOURCE SYNC SUCCESSFUL</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-zinc-900/30 border border-zinc-900 p-4 rounded-xl text-center">
-                <span className="text-[10px] text-zinc-500 block uppercase font-mono mb-1">Added / Qualified</span>
+                <span className="text-[10px] text-zinc-500 block uppercase font-mono mb-1">Leads Added</span>
                 <span className="text-2xl font-bold text-cyan-400">{syncResult.added}</span>
               </div>
               <div className="bg-zinc-900/30 border border-zinc-900 p-4 rounded-xl text-center">
-                <span className="text-[10px] text-zinc-500 block uppercase font-mono mb-1">Skipped / Dupes</span>
+                <span className="text-[10px] text-zinc-500 block uppercase font-mono mb-1">Skipped (Dupes)</span>
                 <span className="text-2xl font-bold text-zinc-400">{syncResult.skipped}</span>
               </div>
             </div>
@@ -334,13 +507,13 @@ export default function SourcesPage() {
               onClick={() => setShowSyncResultModal(false)}
               className="w-full py-2.5 bg-zinc-900 hover:bg-zinc-850 text-zinc-200 border border-zinc-800 rounded-lg font-medium text-sm transition-all duration-200"
             >
-              Close Summary
+              Close
             </button>
           </div>
         </div>
       )}
 
-      {/* Add Source Connector modal drawer */}
+      {/* ── Add Source Modal ── */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm">
           <div className="w-full max-w-lg bg-zinc-950 border border-zinc-900 rounded-2xl shadow-2xl p-6 space-y-6">
@@ -349,10 +522,7 @@ export default function SourcesPage() {
                 <h3 className="text-lg font-semibold text-zinc-100">Add Reddit Connector</h3>
                 <p className="text-xs text-zinc-500 mt-0.5">Stream posts automatically into a specific campaign.</p>
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-zinc-500 hover:text-zinc-300 transition-colors"
-              >
+              <button onClick={() => setIsOpen(false)} className="text-zinc-500 hover:text-zinc-300 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                 </svg>
@@ -366,7 +536,6 @@ export default function SourcesPage() {
                 </div>
               )}
 
-              {/* Campaign select */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-zinc-400">Target Campaign/Mission</label>
                 <select
@@ -382,7 +551,6 @@ export default function SourcesPage() {
                 </select>
               </div>
 
-              {/* Subreddit input */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-zinc-400">Subreddit Name</label>
                 <div className="relative flex items-center">
@@ -401,7 +569,6 @@ export default function SourcesPage() {
                 </p>
               </div>
 
-              {/* Limit slider */}
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-semibold text-zinc-400">
                   <label>Max Ingestion Limit (per sync)</label>

@@ -43,10 +43,14 @@ def _call_ollama(prompt: str, model: str, ollama_url: str) -> str:
         "stream": False,
         "options": {"temperature": 0.3}
     }
-    response = httpx.post(url, json=payload, timeout=30.0)
-    if response.status_code == 200:
-        return response.json().get("response", "")
-    raise RuntimeError(f"Ollama returned status {response.status_code}: {response.text[:200]}")
+    try:
+        response = httpx.post(url, json=payload, timeout=30.0)
+        if response.status_code == 200:
+            return response.json().get("response", "")
+        raise RuntimeError(f"Ollama returned status {response.status_code}: {response.text[:200]}")
+    except httpx.RequestError as e:
+        logger.error(f"Ollama connection error: {e}")
+        raise RuntimeError("Ollama model is offline or unreachable. Please connect/start your local Ollama model first.")
 
 
 def _call_openai_compatible(prompt: str, model: str, api_key: str, base_url: str) -> str:
