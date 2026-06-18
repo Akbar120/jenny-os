@@ -57,8 +57,9 @@ class Lead(Base):
     target_service = Column(String, nullable=True)
     service_match = Column(Boolean, nullable=True, default=False)
     relevance_score = Column(Integer, nullable=True, default=0)
-    source_post_id = Column(String, nullable=True)
-    source_url = Column(String, nullable=True)
+    source_post_id = Column(String, nullable=True, default="")
+    source_url = Column(String, nullable=True, default="")
+    subreddit = Column(String, nullable=True)  # which subreddit this lead came from
 
 class Source(Base):
     __tablename__ = "sources"
@@ -93,4 +94,5 @@ class Log(Base):
     )
     event = Column(String, nullable=False)
     lead_id = Column(String, ForeignKey("leads.id"), nullable=True)
+    mission_id = Column(String, ForeignKey("missions.id"), nullable=True)  # link log to mission
     details = Column(String, nullable=False)  # stored as json.dumps({...})

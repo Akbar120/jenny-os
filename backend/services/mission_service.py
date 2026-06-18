@@ -73,6 +73,7 @@ def get_mission_performance(db: Session, mission_id: str) -> dict:
     leads = db.query(Lead).filter(Lead.mission_id == mission_id).all()
     total = len(leads)
     qualified = sum(1 for l in leads if l.status == "QUALIFIED")
+    disqualified = sum(1 for l in leads if l.status == "DISQUALIFIED")
     rate = round((qualified / total * 100), 1) if total > 0 else 0.0
 
     # Count keyword frequency across lead raw_content
@@ -88,13 +89,23 @@ def get_mission_performance(db: Session, mission_id: str) -> dict:
         if count > 0:
             keyword_counts[kw] = count
 
-    # Return top 3 by hit count
-    top_keywords = sorted(keyword_counts, key=lambda k: keyword_counts[k], reverse=True)[:3]
+    # Return top 5 by hit count
+    top_keywords = sorted(keyword_counts, key=lambda k: keyword_counts[k], reverse=True)[:5]
+
+    # Count total active sources for this mission
+    from backend.database.models import Source
+    total_sources = db.query(Source).filter(
+        Source.mission_id == mission_id,
+        Source.is_active == True
+    ).count()
 
     return {
         "mission_id": mission_id,
         "total_leads": total,
         "qualified_leads": qualified,
+        "disqualified_leads": disqualified,
         "qualification_rate": rate,
         "top_keywords": top_keywords,
+        "total_sources": total_sources,
     }
+

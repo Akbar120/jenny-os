@@ -135,11 +135,11 @@ def sync_source(db: Session, source_id: str) -> dict:
             
             if existing_lead:
                 skipped_count += 1
-                # Log duplicate detected
                 log_service.create_log(
                     db=db,
                     event="DUPLICATE_DETECTED",
                     lead_id=existing_lead.id,
+                    mission_id=mission.id,
                     details={
                         "source_post_id": raw_lead.source_post_id,
                         "mission_id": mission.id,
@@ -161,6 +161,7 @@ def sync_source(db: Session, source_id: str) -> dict:
                     db=db,
                     event="DUPLICATE_DETECTED",
                     lead_id=existing_hash_lead.id,
+                    mission_id=mission.id,
                     details={
                         "content_hash": content_hash,
                         "mission_id": mission.id,
@@ -169,17 +170,17 @@ def sync_source(db: Session, source_id: str) -> dict:
                 )
                 continue
 
-            # Log receipt of raw lead
             log_service.create_log(
-                db=db,
-                event="LEAD_RECEIVED",
-                lead_id=None,
-                details={
-                    "raw_content": raw_lead.raw_text[:100] + "..." if len(raw_lead.raw_text) > 100 else raw_lead.raw_text,
-                    "mission_id": mission.id,
-                    "source_post_id": raw_lead.source_post_id
-                }
-            )
+                    db=db,
+                    event="LEAD_RECEIVED",
+                    lead_id=None,
+                    mission_id=mission.id,
+                    details={
+                        "raw_content": raw_lead.raw_text[:100] + "..." if len(raw_lead.raw_text) > 100 else raw_lead.raw_text,
+                        "mission_id": mission.id,
+                        "source_post_id": raw_lead.source_post_id
+                    }
+                )
 
             # Analyze lead using MissionBasedLeadHunter
             agent_output = agent.analyze(raw_lead.raw_text, keywords=keywords)
@@ -211,20 +212,23 @@ def sync_source(db: Session, source_id: str) -> dict:
                 relevance_score=relevance_score
             )
             
-            # Update Lead's source_post_id, platform, and source_url directly
+            # Update Lead's source_post_id, platform, source_url, and subreddit
             db_lead = db.query(Lead).filter(Lead.id == new_lead.id).first()
             if db_lead:
-                db_lead.source_post_id = raw_lead.source_post_id
-                db_lead.platform = "Reddit"
-                db_lead.source_url = raw_lead.source_url
+                db_lead.source_post_id = raw_lead.source_post_id or ""
+                db_lead.platform = source.source_type.capitalize()
+                db_lead.source_url = raw_lead.source_url or ""
+                # Store which subreddit this came from
+                subreddit_name = config_dict.get("subreddit", "")
+                db_lead.subreddit = subreddit_name
                 db.commit()
                 db.refresh(db_lead)
 
-            # Log classification result
             log_service.create_log(
                 db=db,
                 event=log_event,
                 lead_id=new_lead.id,
+                mission_id=mission.id,
                 details={
                     "intent": validated_output.intent,
                     "relevance_score": relevance_score,

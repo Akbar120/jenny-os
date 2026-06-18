@@ -44,12 +44,20 @@ def create_lead(
             pass
     return lead_entry
 
-def get_leads(db: Session, limit: int = 50, offset: int = 0, mission_id: str | None = None) -> list[Lead]:
-    """Retrieves all leads, parsing reasoning back to list of strings, optionally filtering by mission_id."""
+def get_leads(
+    db: Session,
+    limit: int = 50,
+    offset: int = 0,
+    mission_id: str | None = None,
+    status: str | None = None,
+) -> list[Lead]:
+    """Retrieves leads, optionally filtering by mission_id and/or status. Returns newest first."""
     query = db.query(Lead)
     if mission_id:
         query = query.filter(Lead.mission_id == mission_id)
-    rows = query.offset(offset).limit(limit).all()
+    if status:
+        query = query.filter(Lead.status == status.upper())
+    rows = query.order_by(Lead.created_at.desc()).offset(offset).limit(limit).all()
     for row in rows:
         db.expunge(row)
         if isinstance(row.reasoning, str):
@@ -74,13 +82,13 @@ def get_lead_by_id(db: Session, lead_id: str) -> Lead | None:
 
 def get_stats(db: Session, mission_id: str | None = None) -> dict:
     """Retrieves stats counts for total, qualified, and rejected leads, optionally filtered by mission_id."""
-    query = db.query(Lead)
+    base = db.query(Lead)
     if mission_id:
-        query = query.filter(Lead.mission_id == mission_id)
-        
-    total = query.count()
-    qualified = query.filter(Lead.status == "QUALIFIED").count()
-    rejected = query.filter(Lead.status == "DISQUALIFIED").count()
+        base = base.filter(Lead.mission_id == mission_id)
+
+    total = base.count()
+    qualified = base.filter(Lead.status == "QUALIFIED").count()
+    rejected = base.filter(Lead.status == "DISQUALIFIED").count()
     return {
         "total": total,
         "qualified": qualified,

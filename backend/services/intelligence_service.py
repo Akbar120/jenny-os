@@ -151,7 +151,7 @@ def search_reddit_subreddits(keyword: str) -> list[dict]:
             parser.feed(response.text)
             
             results = []
-            for item in parser.results[:5]:
+            for item in parser.results[:8]:
                 name = item["name"]
                 desc = re.sub(r'\s+', ' ', item["description"]).strip()
                 results.append({
@@ -195,10 +195,14 @@ def discover_communities(target_service: str, keywords: list[str]) -> list[dict]
                     "score": score
                 })
                 
-    # 2. Dynamic Reddit Search for top keywords (limit to top 3 keywords to prevent rate limits/timeouts)
-    search_keywords = keywords[:3]
+    # 2. Dynamic Reddit Search for all keywords (deduplicated to prevent rate limits)
     dynamic_subreddits = []
-    for kw in search_keywords:
+    searched_kws: set[str] = set()
+    for kw in keywords:
+        # Skip very short or duplicate keywords
+        if len(kw) < 3 or kw in searched_kws:
+            continue
+        searched_kws.add(kw)
         results = search_reddit_subreddits(kw)
         dynamic_subreddits.extend(results)
         
@@ -209,11 +213,12 @@ def discover_communities(target_service: str, keywords: list[str]) -> list[dict]
             continue
         seen_names.add(name_key)
         
-        # Calculate overlap score for dynamic subreddit
+        # Proper overlap score: count how many mission keywords appear in subreddit name+description
         text_to_match = f"{sub['name']} {sub['description']}".lower()
         sub_score = sum(1 for kw in kw_set if kw in text_to_match)
+        # A subreddit matched the search query, give it at least 1 point
         if sub_score == 0:
-            sub_score = 1  # Base score of 1 since it matched the query keyword
+            sub_score = 1
             
         sub["score"] = sub_score
         matches.append(sub)

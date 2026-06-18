@@ -144,8 +144,15 @@ def analyze_lead(payload: AnalyzeRequest, db: Session = Depends(get_db)):
     return new_lead
 
 @router.get("/leads", response_model=list[LeadResponse])
-def list_leads(limit: int = 50, offset: int = 0, mission_id: str | None = None, db: Session = Depends(get_db)):
-    return lead_service.get_leads(db, limit=limit, offset=offset, mission_id=mission_id)
+def list_leads(
+    limit: int = 50,
+    offset: int = 0,
+    mission_id: str | None = None,
+    status: str | None = None,
+    db: Session = Depends(get_db)
+):
+    """List leads with optional filters for mission and status (QUALIFIED/DISQUALIFIED)."""
+    return lead_service.get_leads(db, limit=limit, offset=offset, mission_id=mission_id, status=status)
 
 @router.get("/leads/{lead_id}", response_model=LeadResponse)
 def get_lead(lead_id: str, db: Session = Depends(get_db)):

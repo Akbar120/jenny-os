@@ -3,9 +3,36 @@ from sqlalchemy.orm import Session
 from backend.database.engine import get_db
 from backend.schemas.source import SourceCreate, SourceUpdate, SourceResponse, SyncResult
 from backend.services import source_service, log_service
+from backend.services import subreddit_scout_service
 from backend.connectors.reddit import RedditConnector
 
 router = APIRouter(prefix="/api/sources", tags=["Sources"])
+
+# NOTE: /scout MUST be declared before /{source_id} to avoid FastAPI route conflict.
+@router.get("/scout")
+def scout_subreddits(mission_id: str, db: Session = Depends(get_db)):
+    """
+    Discovers the best subreddits for a given mission based on its keywords.
+    Returns ranked suggestions with already_added flag for frontend display.
+    """
+    if not mission_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="mission_id query parameter is required."
+        )
+    try:
+        result = subreddit_scout_service.scout_subreddits_for_mission(db, mission_id)
+        return result
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(ve)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Scout failed: {str(e)}"
+        )
 
 @router.post("", response_model=SourceResponse, status_code=status.HTTP_201_CREATED)
 def create_source(payload: SourceCreate, db: Session = Depends(get_db)):
