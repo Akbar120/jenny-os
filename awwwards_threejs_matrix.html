@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en" class="lenis selection:bg-neutral-800 selection:text-white">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aether Matrix - Experiential Web</title>
+  
+  <!-- Tailwind for basic structure and responsive utility spacing -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            theme: {
+              black: '#050505',
+              border: 'rgba(255, 255, 255, 0.04)',
+              accent: '#d97706' // Amber Accent
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts: Display Serif + Monospace HUD details -->
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=JetBrains+Mono:wght@300;400&family=Plus+Jakarta+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <!-- Core CDN Packages -->
+  <script src="https://unpkg.com/lenis@1.3.23/dist/lenis.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Prevent raw scrollbar layout jumps */
+    html.lenis { height: auto; }
+    .lenis.lenis-smooth { scroll-behavior: auto !important; }
+    ::-webkit-scrollbar { display: none; }
+    
+    body {
+      background-color: #050505;
+      color: #fff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    .font-serif-display { font-family: 'Cinzel', serif; }
+    .font-mono-hud { font-family: 'JetBrains Mono', monospace; }
+
+    /* Glassmorphism primitives */
+    .glass-hud {
+      background: rgba(8, 8, 8, 0.7);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+  </style>
+</head>
+<body class="relative min-h-screen">
+
+  <!-- Immersive Three.js Canvas Backdrop -->
+  <canvas id="webgl-canvas" class="fixed inset-0 w-full h-full z-0 pointer-events-none"></canvas>
+
+  <!-- Technical Grid HUD layer -->
+  <div class="fixed inset-0 pointer-events-none z-30 opacity-30 select-none">
+    <div class="absolute top-0 bottom-0 left-[20%] w-[1px] bg-white/5"></div>
+    <div class="absolute top-0 bottom-0 left-[80%] w-[1px] bg-white/5"></div>
+    <div class="absolute top-6 left-6 font-mono-hud text-[9px] text-neutral-500">INDEX // AETHER_ENGINE_v1.0</div>
+    <div class="absolute bottom-6 left-6 font-mono-hud text-[9px] text-neutral-500">SYSTEM: ONLINE</div>
+  </div>
+
+  <!-- Smooth Tracking Cursor -->
+  <div class="custom-cursor fixed w-10 h-10 rounded-full border border-white/20 pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2 hidden md:block"></div>
+  <div class="custom-cursor-dot fixed w-1.5 h-1.5 rounded-full bg-white pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2 hidden md:block"></div>
+
+  <!-- Core Content Container -->
+  <div class="relative z-10 w-full">
+    
+    <!-- Hero Viewport -->
+    <section class="h-screen w-full flex flex-col justify-center items-center px-12 text-center">
+      <div class="space-y-6 max-w-4xl">
+        <span class="font-mono-hud text-[11px] text-theme-accent tracking-[0.3em] uppercase block hover-trigger pointer-events-auto cursor-none">// SCROLL TO NAVIGATE MATRIX</span>
+        <h1 class="font-serif-display text-[clamp(2rem,8vw,7rem)] font-light leading-none tracking-tight">
+          AETHERIA
+        </h1>
+        <p class="text-neutral-400 text-sm max-w-md mx-auto font-light leading-relaxed">
+          WebGL particles, scroll damping, and custom mouse physics built directly inside a single-page viewport layout.
+        </p>
+      </div>
+    </section>
+
+    <!-- Scroll Section 2: Parallax/Split-Text reveal -->
+    <section class="min-h-screen w-full flex items-center justify-center px-12 py-32" id="about">
+      <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center w-full">
+        
+        <div class="space-y-8">
+          <span class="font-mono-hud text-[10px] text-neutral-500">// MODULE_02_INTELLIGENCE</span>
+          <h2 class="font-serif-display text-4xl lg:text-6xl tracking-tight split-reveal-text">
+            ORGANIC COORDINATES & SMOOTH MOTION
+          </h2>
+          <p class="text-neutral-400 text-sm leading-relaxed max-w-md font-light">
+            Every movement is driven by a decay rate. The browser scroll triggers vector modifications rather than static offsets, allowing content to ease organically into position.
+          </p>
+        </div>
+
+        <!-- Parallax Container -->
+        <div class="relative w-full h-[550px] overflow-hidden rounded-2xl border border-white/5 group shadow-2xl">
+          <img 
+            src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop" 
+            alt="WebGL Art"
+            class="parallax-image absolute top-0 left-0 w-full h-[130%] object-cover scale-105"
+          >
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Core Setup Script -->
+  <script>
+    // Initialize Icons
+    lucide.createIcons();
+
+    // 1. Sync Lenis scroll physics with GSAP ScrollTrigger
+    const lenis = new Lenis({
+      duration: 1.3,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smooth: true
+    });
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add((time) => {
+      lenis.raf(time * 1000);
+    });
+    gsap.ticker.lagSmoothing(0);
+
+    // 2. Custom Cursor Spring-Physics
+    const cursor = document.querySelector('.custom-cursor');
+    const cursorDot = document.querySelector('.custom-cursor-dot');
+    window.addEventListener('mousemove', (e) => {
+      gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.28, ease: "power2.out" });
+      gsap.to(cursorDot, { x: e.clientX, y: e.clientY, duration: 0.08, ease: "power2.out" });
+    });
+
+    document.querySelectorAll('.hover-trigger').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        gsap.to(cursor, { scale: 1.7, borderColor: '#d97706', backgroundColor: 'rgba(217, 119, 6, 0.08)', duration: 0.2 });
+      });
+      el.addEventListener('mouseleave', () => {
+        gsap.to(cursor, { scale: 1, borderColor: 'rgba(255, 255, 255, 0.2)', backgroundColor: 'transparent', duration: 0.2 });
+      });
+    });
+
+    // 3. Characters Scroll-Reveal (Split Text)
+    document.querySelectorAll('.split-reveal-text').forEach(el => {
+      const text = el.innerText;
+      el.innerHTML = text.split('').map(c => `<span class="char opacity-20 inline-block">${c === ' ' ? '&nbsp;' : c}</span>`).join('');
+    });
+    gsap.to('.char', {
+      scrollTrigger: {
+        trigger: '.split-reveal-text',
+        start: 'top 80%',
+        end: 'bottom 50%',
+        scrub: true
+      },
+      opacity: 1,
+      color: '#ffffff',
+      stagger: 0.05
+    });
+
+    // Parallax Scroll for images
+    gsap.to('.parallax-image', {
+      scrollTrigger: {
+        trigger: '#about',
+        start: 'top bottom',
+        end: 'bottom top',
+        scrub: true
+      },
+      y: '-20%',
+      ease: 'none'
+    });
+
+    // 4. Background WebGL Scene (Interactive Particle field)
+    const canvas = document.getElementById('webgl-canvas');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+    
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // Particle geometry
+    const particleCount = 1200;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+
+    for(let i = 0; i < particleCount * 3; i += 3) {
+      positions[i] = (Math.random() - 0.5) * 12; // X
+      positions[i+1] = (Math.random() - 0.5) * 12; // Y
+      positions[i+2] = (Math.random() - 0.5) * 12; // Z
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    // Particle shader material
+    const material = new THREE.PointsMaterial({
+      size: 0.015,
+      color: 0xd97706,
+      transparent: true,
+      opacity: 0.6
+    });
+
+    const particles = new THREE.Points(geometry, material);
+    scene.add(particles);
+
+    camera.position.z = 5;
+
+    // React to mouse movement
+    let targetX = 0, targetY = 0;
+    window.addEventListener('mousemove', (e) => {
+      targetX = (e.clientX / window.innerWidth - 0.5) * 0.5;
+      targetY = (e.clientY / window.innerHeight - 0.5) * 0.5;
+    });
+
+    // Render loop
+    const clock = new THREE.Clock();
+    const animate = () => {
+      const elapsedTime = clock.getElapsedTime();
+      
+      // Slow constant particle rotation
+      particles.rotation.y = elapsedTime * 0.05;
+      particles.rotation.x = elapsedTime * 0.02;
+
+      // Elastic camera track to mouse
+      camera.position.x += (targetX - camera.position.x) * 0.05;
+      camera.position.y += (-targetY - camera.position.y) * 0.05;
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    };
+    animate();
+
+    // Resize handler
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+  </script>
+</body>
+</html>

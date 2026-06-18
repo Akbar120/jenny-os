@@ -1,0 +1,155 @@
+[
+  {
+    "id": "reddit-gamedev",
+    "platform": "reddit",
+    "name": "gamedev",
+    "display_name": "r/gamedev",
+    "description": "Game development community for news, questions, and networking.",
+    "keywords": ["game", "artist", "programmer", "developer", "indie", "unity", "unreal", "design", "3d", "character"],
+    "url": "https://reddit.com/r/gamedev"
+  },
+  {
+    "id": "reddit-unrealengine",
+    "platform": "reddit",
+    "name": "unrealengine",
+    "display_name": "r/unrealengine",
+    "description": "A subreddit for the Unreal Engine, the developer community, and related projects.",
+    "keywords": ["unreal", "unreal engine", "ue4", "ue5", "artist", "3d", "character", "programmer", "blueprint", "metahuman"],
+    "url": "https://reddit.com/r/unrealengine"
+  },
+  {
+    "id": "reddit-uefn",
+    "platform": "reddit",
+    "name": "UEFN",
+    "display_name": "r/UEFN",
+    "description": "Subreddit for Unreal Editor for Fortnite, creative mode 2.0, and dev logs.",
+    "keywords": ["uefn", "fortnite", "creative", "unreal", "game", "artist", "3d", "character", "verse"],
+    "url": "https://reddit.com/r/UEFN"
+  },
+  {
+    "id": "reddit-forhire",
+    "platform": "reddit",
+    "name": "forhire",
+    "display_name": "r/forhire",
+    "description": "Subreddit for hiring and getting hired. Find freelance projects.",
+    "keywords": ["freelance", "hire", "hiring", "developer", "designer", "artist", "writer", "editor", "video"],
+    "url": "https://reddit.com/r/forhire"
+  },
+  {
+    "id": "reddit-gamedevclassifieds",
+    "platform": "reddit",
+    "name": "gameDevClassifieds",
+    "display_name": "r/gameDevClassifieds",
+    "description": "Classified ads for game developers, artists, programmers, and designers.",
+    "keywords": ["game", "freelance", "hire", "artist", "programmer", "composer", "3d", "character", "developer", "job"],
+    "url": "https://reddit.com/r/gameDevClassifieds"
+  },
+  {
+    "id": "reddit-inat",
+    "platform": "reddit",
+    "name": "INAT",
+    "display_name": "r/INAT",
+    "description": "I Need A Team: collaborate with other game developers on projects.",
+    "keywords": ["team", "game", "artist", "programmer", "collaborate", "revshare", "hobby", "3d", "character"],
+    "url": "https://reddit.com/r/INAT"
+  },
+  {
+    "id": "reddit-startups",
+    "platform": "reddit",
+    "name": "startups",
+    "display_name": "r/startups",
+    "description": "Discussing startup businesses, workflows, SaaS, scaling, and growth.",
+    "keywords": ["startup", "saas", "business", "automation", "workflow", "marketing", "consulting", "ai"],
+    "url": "https://reddit.com/r/startups"
+  },
+  {
+    "id": "reddit-automation",
+    "platform": "reddit",
+    "name": "automation",
+    "display_name": "r/automation",
+    "description": "Subreddit dedicated to automation tools, processes, and software development.",
+    "keywords": ["automation", "workflow", "zapier", "make.com", "n8n", "scripting", "python", "ai", "integration"],
+    "url": "https://reddit.com/r/automation"
+  },
+  {
+    "id": "reddit-freelance",
+    "platform": "reddit",
+    "name": "Freelance",
+    "display_name": "r/Freelance",
+    "description": "Discussing the business and lifestyle of freelancing across industries.",
+    "keywords": ["freelance", "client", "contract", "business", "consulting", "marketing", "agency"],
+    "url": "https://reddit.com/r/Freelance"
+  },
+  {
+    "id": "reddit-videoediting",
+    "platform": "reddit",
+    "name": "videoediting",
+    "display_name": "r/videoediting",
+    "description": "Subreddit for video editors to share questions, workflows, and projects.",
+    "keywords": ["video", "editor", "editing", "premiere", "resolve", "after effects", "youtube", "cut", "montage"],
+    "url": "https://reddit.com/r/videoediting"
+  },
+  {
+    "id": "reddit-editors",
+    "platform": "reddit",
+    "name": "editors",
+    "display_name": "r/editors",
+    "description": "A subreddit for professional video editors to discuss post-production.",
+    "keywords": ["professional", "video", "editor", "editing", "premiere", "avid", "resolve", "workflows", "job"],
+    "url": "https://reddit.com/r/editors"
+  },
+  {
+    "id": "reddit-videography",
+    "platform": "reddit",
+    "name": "videography",
+    "display_name": "r/videography",
+    "description": "All things related to videography, video production, camera gear, and edits.",
+    "keywords": ["video", "production", "videography", "editing", "youtube", "social media", "camera", "client"],
+    "url": "https://reddit.com/r/videography"
+  },
+  {
+    "id": "discord-unreal-slackers",
+    "platform": "discord",
+    "name": "Unreal Slackers",
+    "display_name": "Unreal Slackers Discord",
+    "description": "Largest community of Unreal Engine developers, artists, and creators.",
+    "keywords": ["unreal", "ue4", "ue5", "blueprint", "artist", "3d", "character", "job", "hiring"],
+    "url": "https://discord.gg/unreal-slackers"
+  },
+  {
+    "id": "discord-gamedev",
+    "platform": "discord",
+    "name": "Game Dev League",
+    "display_name": "Game Dev League Discord",
+    "description": "Friendly Discord community focusing on all domains of game development.",
+    "keywords": ["game", "artist", "programmer", "design", "freelance", "job", "portfolio"],
+    "url": "https://discord.gg/gdl"
+  },
+  {
+    "id": "discord-make-community",
+    "platform": "discord",
+    "name": "Make.com Automation",
+    "display_name": "Make.com Discord",
+    "description": "Unofficial community of Make.com automation builders and agency owners.",
+    "keywords": ["automation", "make.com", "integromat", "workflow", "zapier", "n8n", "agency", "consulting"],
+    "url": "https://discord.gg/make-automation"
+  },
+  {
+    "id": "jobboard-upwork",
+    "platform": "job_board",
+    "name": "Upwork",
+    "display_name": "Upwork Job Feed",
+    "description": "Global freelancing platform for multiple professional services.",
+    "keywords": ["freelance", "developer", "artist", "designer", "editor", "automation", "consulting", "job"],
+    "url": "https://upwork.com"
+  },
+  {
+    "id": "jobboard-fiverr",
+    "platform": "job_board",
+    "name": "Fiverr",
+    "display_name": "Fiverr Gig Marketplace",
+    "description": "Gig-based marketplace for freelance services and active buyer requests.",
+    "keywords": ["gig", "freelance", "character", "artist", "editor", "video", "automation", "saas"],
+    "url": "https://fiverr.com"
+  }
+]

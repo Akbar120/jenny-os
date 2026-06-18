@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en" class="lenis selection:bg-cyan-500/30 selection:text-white">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS // The Ultimate Neural Hub</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            jarvis: {
+              black: '#020305',
+              dark: '#05070e',
+              card: 'rgba(8, 12, 22, 0.6)',
+              border: 'rgba(6, 182, 212, 0.08)',
+              cyan: '#06b6d4',
+              purple: '#a855f7',
+              emerald: '#10b981',
+              rose: '#f43f5e',
+              glow: 'rgba(6, 182, 212, 0.2)'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Fonts (Orbitron for tech, JetBrains Mono for HUD, Plus Jakarta Sans for UI) -->
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Orbitron:wght@400;700;900&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+  <!-- Core Libraries -->
+  <script src="https://unpkg.com/lenis@1.3.23/dist/lenis.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <style>
+    /* Reset & Custom scrollbar */
+    html.lenis { height: auto; }
+    .lenis.lenis-smooth { scroll-behavior: auto !important; }
+    ::-webkit-scrollbar { display: none; }
+    
+    body {
+      background-color: #020305;
+      color: #f1f5f9;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    .font-hud { font-family: 'JetBrains Mono', monospace; }
+    .font-logo { font-family: 'Orbitron', sans-serif; }
+
+    /* Film Grain Noise Overlay */
+    .noise-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      opacity: 0.035;
+      z-index: 999;
+      pointer-events: none;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+
+    /* Holographic glowing panels */
+    .glass-hud-panel {
+      background: rgba(6, 10, 18, 0.5);
+      backdrop-filter: blur(25px) saturate(170%);
+      -webkit-backdrop-filter: blur(25px) saturate(170%);
+      border: 1px solid rgba(6, 182, 212, 0.08);
+      box-shadow: inset 0 0 15px rgba(6, 182, 212, 0.02), 0 10px 40px rgba(0, 0, 0, 0.6);
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    /* Neon volumetric light leaks */
+    .glow-light-cyan {
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, rgba(0,0,0,0) 70%);
+      filter: blur(40px);
+    }
+    .glow-light-purple {
+      background: radial-gradient(circle, rgba(168, 85, 247, 0.08) 0%, rgba(0,0,0,0) 70%);
+      filter: blur(50px);
+    }
+
+    /* Glitch text effect */
+    .glitch-text {
+      position: relative;
+    }
+    .glitch-text::before, .glitch-text::after {
+      content: attr(data-text);
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #020305;
+    }
+    .glitch-text::before {
+      left: 1.5px;
+      text-shadow: -1px 0 #06b6d4;
+      clip: rect(44px, 450px, 56px, 0);
+      animation: glitch-anim 4s infinite linear alternate-reverse;
+    }
+    .glitch-text::after {
+      left: -1.5px;
+      text-shadow: -1px 0 #a855f7;
+      clip: rect(85px, 450px, 140px, 0);
+      animation: glitch-anim2 4s infinite linear alternate-reverse;
+    }
+
+    @keyframes glitch-anim {
+      0% { clip: rect(15px, 9999px, 66px, 0); }
+      100% { clip: rect(34px, 9999px, 55px, 0); }
+    }
+    @keyframes glitch-anim2 {
+      0% { clip: rect(70px, 9999px, 105px, 0); }
+      100% { clip: rect(12px, 9999px, 85px, 0); }
+    }
+  </style>
+</head>
+<body class="relative min-h-screen">
+
+  <!-- Film Grain Overlay -->
+  <div class="noise-overlay"></div>
+
+  <!-- WebGL Background Vector Orb (Fixed) -->
+  <canvas id="webgl-canvas" class="fixed inset-0 w-full h-full z-0 pointer-events-none"></canvas>
+
+  <!-- Technical Grid HUD layer -->
+  <div class="fixed inset-0 pointer-events-none z-10 opacity-20 select-none">
+    <div class="absolute left-0 right-0 top-[10%] h-[1px] bg-cyan-500/5"></div>
+    <div class="absolute left-0 right-0 top-[50%] h-[1px] bg-cyan-500/5"></div>
+    <div class="absolute left-0 right-0 top-[90%] h-[1px] bg-cyan-500/5"></div>
+    <div class="absolute top-0 bottom-0 left-[15%] w-[1px] bg-cyan-500/5"></div>
+    <div class="absolute top-0 bottom-0 left-[50%] w-[1px] bg-cyan-500/5"></div>
+    <div class="absolute top-0 bottom-0 left-[85%] w-[1px] bg-cyan-500/5"></div>
+    <div class="absolute top-4 left-4 right-4 bottom-4 border border-cyan-500/5"></div>
+  </div>
+
+  
+
+  <!-- Header Navigation -->
+  <header class="fixed top-0 left-0 right-0 z-40 px-12 h-20 flex items-center justify-between border-b border-white/5 glass-hud-panel shrink-0 select-none pointer-events-none">
+    <div class="flex items-center gap-3 pointer-events-auto  ">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-purple-500 flex items-center justify-center shadow-lg shadow-cyan-500/10">
+        <i data-lucide="cpu" class="w-4 h-4 text-white"></i>
+      </div>
+      <span class="font-logo font-bold text-sm tracking-wider">JARVIS_HUB</span>
+    </div>
+    
+    <nav class="flex gap-8 pointer-events-auto">
+      <a href="#control-deck" class=" font-mono-hud text-[10px] tracking-widest text-slate-400 hover:text-white transition-colors ">01_CONTROL_DECK</a>
+      <a href="#node-grid" class=" font-mono-hud text-[10px] tracking-widest text-slate-400 hover:text-white transition-colors ">02_NEURAL_GRID</a>
+      <a href="#voice-logs" class=" font-mono-hud text-[10px] tracking-widest text-slate-400 hover:text-white transition-colors ">03_SYSTEM_LOGS</a>
+      <a href="#design-lab" class=" font-mono-hud text-[10px] tracking-widest text-slate-400 hover:text-white transition-colors ">04_DESIGN_LAB</a>
+    </nav>
+  </header>
+
+  <!-- Main Scrollable Sections Container -->
+  <div 
+    class="relative z-20 w-full"
+    x-data="{
+      soundEnabled: true,
+      currentInput: '',
+      jarvisResponse: 'SYSTEM SECURED. AWAITING EXECUTIVE INSTRUCTION.',
+      isAnalyzing: false,
+      activeColor: '#06b6d4',
+      logs: [
+        'SYSTEM // Active nodes online.',
+        'NEURAL // Synapses connected.'
+      ],
+
+      // Slider states for Codex Design Lab
+      glowVal: 15,
+      radiusVal: 16,
+      blurVal: 12,
+      hueVal: 190,
+
+      // Initialize
+      init() {
+        this.decrypt('feedback-text', this.jarvisResponse);
+      },
+
+      // Preset Action trigger
+      triggerAction(act) {
+        this.isAnalyzing = true;
+        this.addLog(`CMD // Syncing node: ${act}`);
+        if (act === 'SYS_SCAN') {
+          updateWebGLParams(0.08, 0xa855f7, 2.2);
+          this.activeColor = '#a855f7';
+          setTimeout(() => {
+            const res = 'DIAGNOSTICS RESOLVED. CPU ENGINE LOAD: 12%. ENCRYPTION INTEGRITY: 99.9%.';
+            this.decrypt('feedback-text', res);
+            this.speak(res);
+            this.addLog('SYS // Full diagnostics completed.');
+            updateWebGLParams(0.015, 0x06b6d4, 1.0);
+            this.activeColor = '#06b6d4';
+            this.isAnalyzing = false;
+          }, 1800);
+        } else if (act === 'NEURAL_SYNC') {
+          updateWebGLParams(0.12, 0x10b981, 2.5);
+          this.activeColor = '#10b981';
+          setTimeout(() => {
+            const res = 'SYNAPTIC CHANNELS ALIGNED. 1,200 NEURAL THREADS CONVERGING.';
+            this.decrypt('feedback-text', res);
+            this.speak(res);
+            this.addLog('NEURAL // Node synchronization complete.');
+            updateWebGLParams(0.015, 0x06b6d4, 1.0);
+            this.activeColor = '#06b6d4';
+            this.isAnalyzing = false;
+          }, 2200);
+        } else if (act === 'DEPLOY_AGT') {
+          updateWebGLParams(0.16, 0xf43f5e, 2.8);
+          this.activeColor = '#f43f5e';
+          setTimeout(() => {
+            const res = 'AUTONOMOUS SUB-AGENT INITIALIZED. TARGET HOST: LOCALHOST.';
+            this.decrypt('feedback-text', res);
+            this.speak(res);
+            this.addLog('DEPLOY // Sub-agent online.');
+            updateWebGLParams(0.015, 0x06b6d4, 1.0);
+            this.activeColor = '#06b6d4';
+            this.isAnalyzing = false;
+          }, 2000);
+        }
+      },
+
+      // Custom Command Submit
+      submitQuery() {
+        if (!this.currentInput.trim()) return;
+        const q = this.currentInput.trim().toUpperCase();
+        this.addLog(`USER // ${q}`);
+        this.currentInput = '';
+        this.isAnalyzing = true;
+        setTimeout(() => {
+          let res = 'DIRECTIVE ROUTED. SYNERGETIC NODE INITIATED.';
+          if (q.includes('HELLO') || q.includes('HI')) {
+            res = 'WELCOME OPERATOR. WORKSPACE CHANNELS ARE DEPLOYED.';
+          } else if (q.includes('STATUS')) {
+            res = 'ALL NETWORKS OPERATING AT PEAK CAPACITY. ENCRYPTED.';
+          }
+          this.decrypt('feedback-text', res);
+          this.speak(res);
+          this.addLog('JARVIS // Processed request.');
+          this.isAnalyzing = false;
+        }, 1100);
+      },
+
+      // Decrypt effect
+      decrypt(id, text) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const ch = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*';
+        let iter = 0;
+        clearInterval(el.decInterval);
+        el.decInterval = setInterval(() => {
+          el.innerText = text.split('').map((c, i) => {
+            if (i < iter) return text[i];
+            return ch[Math.floor(Math.random() * ch.length)];
+          }).join('');
+          if (iter >= text.length) clearInterval(el.decInterval);
+          iter += 1/2;
+        }, 20);
+      },
+
+      // Log push
+      addLog(msg) {
+        const t = new Date().toLocaleTimeString().split(' ')[0];
+        this.logs.push(`[${t}] ${msg}`);
+        this.$nextTick(() => {
+          const c = document.getElementById('log-panel-container');
+          if (c) c.scrollTop = c.scrollHeight;
+        });
+      },
+
+      // TTS speech synthesis
+      speak(t) {
+        if (!this.soundEnabled) return;
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(t);
+        u.rate = 1.02;
+        u.pitch = 0.85;
+        const v = window.speechSynthesis.getVoices();
+        const voice = v.find(x => x.lang.startsWith('en') && x.name.includes('Google')) || v[0];
+        if (voice) u.voice = voice;
+        window.speechSynthesis.speak(u);
+      },
+
+      // Play custom voice logs with canvas audio visualizer trigger
+      playVoiceLog(logId) {
+        this.isAnalyzing = true;
+        let msg = '';
+        if (logId === 1) {
+          msg = 'LOG 01 // DATABASE CONNECTIVITY RESTORED. CORE ARCHITECTURE OPTIMIZED.';
+        } else if (logId === 2) {
+          msg = 'LOG 02 // SUB-AGENT DEPLOYED. RETRIEVING SYSTEM SCOPES AND REPOSITORY METRICS.';
+        } else if (logId === 3) {
+          msg = 'LOG 03 // SECURE FIREWALL DEPLOYED. SCANNED PORT RANGES FOR FLOATING VULNERABILITIES.';
+        }
+        this.decrypt('voice-text-feed', msg);
+        this.speak(msg);
+        this.addLog(`VOICE // Playing system log ${logId}`);
+        
+        // Trigger canvas visualizer bounce
+        triggerVisualizerPulse(80);
+        setTimeout(() => {
+          this.isAnalyzing = false;
+        }, 3000);
+      },
+
+      // Copy Codex CSS code
+      copyCSS() {
+        const text = document.getElementById('codex-code-output').innerText;
+        navigator.clipboard.writeText(text);
+        this.addLog('SYS // CSS Codex copied to clipboard.');
+        this.decrypt('feedback-text', 'CODEX STYLE SPECIFICATION COPIED.');
+        this.speak('Codex styles copied to clipboard');
+      }
+    }"
+    x-init="init()"
+  >
+
+    <!-- SECTION 1: Control Deck (Hero) -->
+    <section id="control-deck" class="min-h-screen w-full flex items-center justify-center p-8 pt-32 relative border-b border-brand-border">
+      
+      <!-- Volumetric glow lights behind panels -->
+      <div class="glow-light-cyan absolute w-96 h-96 top-1/4 left-1/4"></div>
+      <div class="glow-light-purple absolute w-96 h-96 bottom-1/4 right-1/4"></div>
+
+      <div class="w-full max-w-7xl mx-auto grid grid-cols-12 gap-8 z-10">
+        
+        <!-- Left Panel: HUD Status -->
+        <div class="col-span-12 lg:col-span-3 flex flex-col space-y-6">
+          <div class="glass-hud-panel p-6 rounded-3xl shrink-0 flex items-center justify-between">
+            <div class="space-y-1">
+              <span class="font-mono-hud text-[9px] text-cyan-400 tracking-[0.2em]">// NEURAL_ENG</span>
+              <h2 class="font-logo text-base tracking-[0.1em] font-extrabold text-white">STATUS: OK</h2>
+            </div>
+            <button 
+              @click="soundEnabled = !soundEnabled"
+              class="p-2.5 hover:bg-cyan-500/5 hover:border-cyan-500/40 rounded-2xl border border-cyan-500/20 text-cyan-400 cyan-glow transition-all  "
+            >
+              <i data-lucide="volume-2" x-show="soundEnabled" class="w-5 h-5"></i>
+              <i data-lucide="volume-x" x-show="!soundEnabled" class="w-5 h-5"></i>
+            </button>
+          </div>
+
+          <div class="glass-hud-panel p-6 rounded-3xl flex-grow flex flex-col justify-between overflow-hidden relative">
+            <div class="space-y-6">
+              <span class="font-mono-hud text-[9px] text-slate-500 block border-b border-brand-border pb-2">// HARDWARE_METRICS</span>
+              
+              <!-- Circular Scanner Radar -->
+              <div class="flex justify-center py-2">
+                <div class="relative w-36 h-36 rounded-full border border-cyan-500/10 flex items-center justify-center overflow-hidden">
+                  <div class="absolute inset-0 bg-gradient-to-tr from-cyan-500/0 via-cyan-500/0 to-cyan-500/15 origin-center animate-[spin_3.5s_linear_infinite]"></div>
+                  <div class="w-28 h-28 rounded-full border border-cyan-500/10 flex items-center justify-center">
+                    <div class="w-16 h-16 rounded-full border border-cyan-500/5"></div>
+                  </div>
+                  <div class="absolute top-10 left-14 w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping"></div>
+                  <div class="absolute top-20 left-8 w-1 h-1 bg-purple-400 rounded-full opacity-60"></div>
+                </div>
+              </div>
+
+              <!-- Static CPU HUD lines -->
+              <div class="space-y-3 font-mono-hud text-[10px] text-slate-400">
+                <div class="flex justify-between"><span>CPU_ENGINE</span><span class="text-cyan-400">14%</span></div>
+                <div class="w-full h-1 bg-neutral-900 rounded-full overflow-hidden border border-brand-border">
+                  <div class="h-full bg-cyan-500 rounded-full" style="width: 14%"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="border-t border-brand-border pt-4 mt-6 text-[9px] font-mono-hud text-neutral-500">
+              <div>NODE_SYNC: SYSTEM_NODE_09</div>
+              <div>LATENCY: 0.12MS // STABLE</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center Panel: Directives Response & Sphere Core -->
+        <div class="col-span-12 lg:col-span-6 flex flex-col justify-between items-center py-6 h-[550px]">
+          <!-- Chat box -->
+          <div class="glass-hud-panel w-full p-5 rounded-3xl text-center relative overflow-hidden">
+            <span class="font-mono-hud text-[9px] text-cyan-400 tracking-[0.3em] block mb-2">// DIRECTIVE_RESPONSE</span>
+            <p id="feedback-text" class="font-hud text-sm font-semibold tracking-wider h-14 flex items-center justify-center text-slate-100 uppercase"></p>
+          </div>
+
+          <!-- Presets -->
+          <div class="w-full max-w-md grid grid-cols-3 gap-4">
+            <button @click="triggerAction('SYS_SCAN')" class="p-4 glass-hud-panel rounded-2xl text-center   group active:scale-95">
+              <i data-lucide="shield-alert" class="w-5 h-5 mx-auto mb-2 text-slate-400 group-hover:text-purple-400 transition-colors"></i>
+              <span class="font-mono-hud text-[9px] text-slate-400 group-hover:text-white tracking-widest block">// SYS_SCAN</span>
+            </button>
+            <button @click="triggerAction('NEURAL_SYNC')" class="p-4 glass-hud-panel rounded-2xl text-center   group active:scale-95">
+              <i data-lucide="cpu" class="w-5 h-5 mx-auto mb-2 text-slate-400 group-hover:text-emerald-400 transition-colors"></i>
+              <span class="font-mono-hud text-[9px] text-slate-400 group-hover:text-white tracking-widest block">// NEURAL_SYNC</span>
+            </button>
+            <button @click="triggerAction('DEPLOY_AGT')" class="p-4 glass-hud-panel rounded-2xl text-center   group active:scale-95">
+              <i data-lucide="activity" class="w-5 h-5 mx-auto mb-2 text-slate-400 group-hover:text-rose-400 transition-colors"></i>
+              <span class="font-mono-hud text-[9px] text-slate-400 group-hover:text-white tracking-widest block">// DEPLOY_AGT</span>
+            </button>
+          </div>
+
+          <!-- Console input -->
+          <form @submit.prevent="submitQuery" class="w-full max-w-xl relative">
+            <i data-lucide="terminal" class="w-5 h-5 text-cyan-400 absolute left-6 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="text" 
+              placeholder="ENTER Directives..." 
+              x-model="currentInput"
+              :disabled="isAnalyzing"
+              class="w-full bg-slate-950/80 border border-cyan-500/15 focus:border-cyan-500 rounded-full pl-16 pr-20 py-4 text-xs font-hud tracking-widest text-white uppercase focus:outline-none focus:ring-4 focus:ring-cyan-500/10 transition-all placeholder-slate-600 disabled:opacity-50  "
+            >
+            <button type="submit" class="absolute right-4 top-1/2 -translate-y-1/2 px-5 py-2 bg-cyan-500 hover:bg-cyan-400 active:scale-95 text-[10px] font-mono-hud text-slate-950 rounded-full transition-all font-bold  ">
+              EXECUTE
+            </button>
+          </form>
+        </div>
+
+        <!-- Right Panel: SVG waves & Console Log stream -->
+        <div class="col-span-12 lg:col-span-3 flex flex-col space-y-6">
+          <div class="glass-hud-panel p-5 rounded-3xl h-40 flex flex-col justify-between shrink-0">
+            <span class="font-mono-hud text-[9px] text-slate-500">// WAVEFORM_FREQ</span>
+            <div class="w-full h-16 flex items-center justify-center">
+              <svg class="w-full h-full" viewBox="0 0 200 80">
+                <path id="hud-wave-path" fill="none" stroke="#06b6d4" stroke-width="1.5" d="M 0 40 L 200 40"/>
+              </svg>
+            </div>
+            <div class="flex justify-between font-mono-hud text-[8px] text-slate-600"><span>12Hz</span><span>440Hz</span></div>
+          </div>
+
+          <div class="glass-hud-panel p-5 rounded-3xl flex-grow flex flex-col overflow-hidden h-72">
+            <span class="font-mono-hud text-[9px] text-slate-500 mb-3 block shrink-0">// CONSOLE_LOGS</span>
+            <div id="log-panel-container" class="flex-grow overflow-y-auto space-y-3 font-mono-hud text-[9px] text-slate-400 pr-2">
+              <template x-for="log in logs" :key="log">
+                <div class="border-b border-brand-border/20 pb-1.5" x-text="log"></div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 2: Neural grid Node map (Fully functional Canvas node graph) -->
+    <section id="node-grid" class="min-h-screen w-full flex items-center justify-center px-12 py-32 border-b border-brand-border relative">
+      <div class="glow-light-cyan absolute w-[400px] h-[400px] right-1/4 top-1/4"></div>
+      
+      <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-12 items-center w-full z-10">
+        
+        <!-- Left Side: HUD readouts -->
+        <div class="space-y-8 glass-hud-panel p-8 rounded-3xl h-full flex flex-col justify-between">
+          <div class="space-y-4">
+            <span class="font-mono-hud text-[10px] text-cyan-400 tracking-[0.3em] block">// INTERACTIVE_GRID</span>
+            <h2 class="font-serif-display text-4xl leading-tight text-white uppercase">NEURAL NODE MAP</h2>
+            <p class="text-slate-400 text-sm font-light leading-relaxed">
+              Click anywhere on the interactive grid canvas to spawn new neural network nodes. Hovering near nodes draws glowing connecting vectors dynamically.
+            </p>
+          </div>
+
+          <div class="border-t border-brand-border pt-6 mt-6 space-y-3 font-mono-hud text-[10px] text-slate-400">
+            <div class="flex justify-between"><span>TOTAL_NODES:</span><span id="hud-total-nodes" class="text-cyan-400 font-bold">16</span></div>
+            <div class="flex justify-between"><span>CONNECTION_SYNC:</span><span class="text-emerald-400 font-bold">98.4%</span></div>
+          </div>
+        </div>
+
+        <!-- Center & Right Side: Fully operational Canvas Grid Node graph -->
+        <div class="col-span-2 glass-hud-panel p-4 rounded-3xl h-[500px] relative overflow-hidden flex flex-col justify-between">
+          <canvas id="node-map-canvas" class="w-full flex-grow rounded-2xl bg-black/40 border border-brand-border/30 hover:border-cyan-500/25 transition-colors  "></canvas>
+          <div class="p-3 border-t border-brand-border/40 flex justify-between font-mono-hud text-[9px] text-slate-500">
+            <span>GRID_SYSTEM: ACTIVE [CANVAS_GL]</span>
+            <span>CLICK ON MAP TO INITIALIZE NODE THREAD</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 3: Voice archives with dynamic live audio log visualizer -->
+    <section id="voice-logs" class="min-h-screen w-full flex items-center justify-center px-12 py-32 border-b border-brand-border relative">
+      <div class="glow-light-purple absolute w-[400px] h-[400px] left-1/4 bottom-1/4"></div>
+
+      <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 w-full z-10">
+        
+        <!-- Interactive Log Playlist (4 cols) -->
+        <div class="lg:col-span-4 flex flex-col space-y-4">
+          <span class="font-mono-hud text-[10px] text-purple-400 tracking-[0.3em] block">// LOG_INDEX</span>
+          <h2 class="font-serif-display text-4xl leading-none text-white uppercase border-b border-brand-border pb-4">CORE ARCHIVES</h2>
+          
+          <button 
+            @click="playVoiceLog(1)" 
+            class="glass-hud-panel p-5 rounded-2xl flex items-center justify-between text-left   group hover:border-cyan-500/35"
+          >
+            <div class="space-y-1">
+              <span class="font-mono-hud text-[9px] text-slate-500">SYSTEM_LOG // 01</span>
+              <h4 class="font-logo text-sm font-bold tracking-wide group-hover:text-cyan-400 transition-colors">DATABASE_OPTIMIZE</h4>
+            </div>
+            <i data-lucide="play" class="w-5 h-5 text-slate-500 group-hover:text-cyan-400 transition-colors"></i>
+          </button>
+
+          <button 
+            @click="playVoiceLog(2)" 
+            class="glass-hud-panel p-5 rounded-2xl flex items-center justify-between text-left   group hover:border-purple-500/35"
+          >
+            <div class="space-y-1">
+              <span class="font-mono-hud text-[9px] text-slate-500">SYSTEM_LOG // 02</span>
+              <h4 class="font-logo text-sm font-bold tracking-wide group-hover:text-purple-400 transition-colors">AGENT_DEPLOYMENT</h4>
+            </div>
+            <i data-lucide="play" class="w-5 h-5 text-slate-500 group-hover:text-purple-400 transition-colors"></i>
+          </button>
+
+          <button 
+            @click="playVoiceLog(3)" 
+            class="glass-hud-panel p-5 rounded-2xl flex items-center justify-between text-left   group hover:border-pink-500/35"
+          >
+            <div class="space-y-1">
+              <span class="font-mono-hud text-[9px] text-slate-500">SYSTEM_LOG // 03</span>
+              <h4 class="font-logo text-sm font-bold tracking-wide group-hover:text-pink-400 transition-colors">FIREWALL_SHIELD</h4>
+            </div>
+            <i data-lucide="play" class="w-5 h-5 text-slate-500 group-hover:text-pink-400 transition-colors"></i>
+          </button>
+        </div>
+
+        <!-- Graphic visualizer waves container (8 cols) -->
+        <div class="lg:col-span-8 glass-hud-panel p-8 rounded-3xl flex flex-col justify-between h-[450px]">
+          <div class="flex justify-between items-center border-b border-brand-border/40 pb-4">
+            <span class="font-mono-hud text-[9px] text-slate-500">// AUDIO_FREQ_SPECTRUM</span>
+            <span class="font-mono-hud text-[9px] text-cyan-400 font-bold" x-show="isAnalyzing">STREAMING LOG ARCHIVE...</span>
+          </div>
+
+          <!-- Bouncing neon wave canvas -->
+          <div class="flex-grow flex items-center justify-center relative overflow-hidden py-4">
+            <canvas id="audio-log-visualizer" class="w-full h-44"></canvas>
+          </div>
+
+          <!-- Decrypted text overlay representing log narrative -->
+          <div class="glass-hud-panel p-4 rounded-2xl text-center shrink-0">
+            <p id="voice-text-feed" class="font-hud text-xs text-slate-300 uppercase leading-relaxed h-12 flex items-center justify-center tracking-wider"></p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 4: Codex Design Lab (Operational Sliders CSS component builder) -->
+    <section id="design-lab" class="min-h-screen w-full flex items-center justify-center px-12 py-32 relative">
+      <div class="glow-light-cyan absolute w-[400px] h-[400px] right-1/3 bottom-1/4"></div>
+
+      <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 w-full z-10">
+        
+        <!-- Left Side Sliders (5 cols) -->
+        <div class="lg:col-span-5 glass-hud-panel p-8 rounded-3xl flex flex-col justify-between h-[520px]">
+          <div class="space-y-2 border-b border-brand-border pb-4">
+            <span class="font-mono-hud text-[9px] text-cyan-400 tracking-[0.3em] block">// DESIGN_LAB</span>
+            <h2 class="font-serif-display text-3xl text-white uppercase">CODEX COMPONENT GENERATOR</h2>
+            <p class="text-slate-400 text-xs font-light leading-relaxed">
+              Tweak parameters dynamically to generate custom glowing glassmorphic components. Jarvis compiles the compiled CSS rules in real-time.
+            </p>
+          </div>
+
+          <!-- Sliders -->
+          <div class="space-y-6 flex-grow py-6">
+            <!-- Glow Intensity -->
+            <div class="space-y-2">
+              <div class="flex justify-between font-mono-hud text-[10px] text-slate-400">
+                <span>GLOW INTENSITY</span>
+                <span class="text-cyan-400" x-text="glowVal + 'px'"></span>
+              </div>
+              <input type="range" min="0" max="40" x-model="glowVal" class="w-full accent-cyan-500 bg-neutral-900 border border-brand-border h-1 rounded-lg  ">
+            </div>
+
+            <!-- Border Radius -->
+            <div class="space-y-2">
+              <div class="flex justify-between font-mono-hud text-[10px] text-slate-400">
+                <span>BORDER RADIUS</span>
+                <span class="text-cyan-400" x-text="radiusVal + 'px'"></span>
+              </div>
+              <input type="range" min="0" max="32" x-model="radiusVal" class="w-full accent-cyan-500 bg-neutral-900 border border-brand-border h-1 rounded-lg  ">
+            </div>
+
+            <!-- Backdrop Blur -->
+            <div class="space-y-2">
+              <div class="flex justify-between font-mono-hud text-[10px] text-slate-400">
+                <span>BACKDROP BLUR</span>
+                <span class="text-cyan-400" x-text="blurVal + 'px'"></span>
+              </div>
+              <input type="range" min="0" max="30" x-model="blurVal" class="w-full accent-cyan-500 bg-neutral-900 border border-brand-border h-1 rounded-lg  ">
+            </div>
+
+            <!-- Theme Hue Shift -->
+            <div class="space-y-2">
+              <div class="flex justify-between font-mono-hud text-[10px] text-slate-400">
+                <span>THEME HUE (HSL)</span>
+                <span class="text-purple-400" x-text="hueVal + '°'"></span>
+              </div>
+              <input type="range" min="0" max="360" x-model="hueVal" class="w-full accent-purple-500 bg-neutral-900 border border-brand-border h-1 rounded-lg  ">
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side Preview & Compiled Code CSS output (7 cols) -->
+        <div class="lg:col-span-7 grid grid-rows-2 gap-6 h-[520px]">
+          
+          <!-- Real-Time Interactive Component Preview -->
+          <div class="glass-hud-panel rounded-3xl p-6 flex items-center justify-center relative overflow-hidden">
+            <!-- Dynamic light background overlay matching the selected HSL color -->
+            <div 
+              class="absolute w-32 h-32 rounded-full blur-3xl opacity-30 transition-all duration-300"
+              :style="`background: hsl(${hueVal}, 90%, 50%);`"
+            ></div>
+
+            <!-- Preview Card -->
+            <div 
+              class="p-8 max-w-sm w-full transition-all duration-300"
+              :style="`
+                border-radius: ${radiusVal}px;
+                backdrop-filter: blur(${blurVal}px);
+                -webkit-backdrop-filter: blur(${blurVal}px);
+                background: hsla(${hueVal}, 25%, 8%, 0.55);
+                border: 1px solid hsla(${hueVal}, 90%, 55%, 0.18);
+                box-shadow: 0 10px 40px rgba(0,0,0,0.5), 0 0 ${glowVal}px hsla(${hueVal}, 90%, 55%, 0.25);
+              `"
+            >
+              <div class="flex items-center justify-between mb-4">
+                <span class="font-mono-hud text-[9px] uppercase tracking-wider" :style="`color: hsl(${hueVal}, 90%, 60%);`">// LAB_PREVIEW</span>
+                <div class="w-2.5 h-2.5 rounded-full animate-ping" :style="`background-color: hsl(${hueVal}, 90%, 55%);`"></div>
+              </div>
+              <h3 class="font-logo font-bold text-lg text-white mb-2">CODEX INTERACTION</h3>
+              <p class="text-xs text-slate-400 leading-relaxed font-light mb-4">
+                This preview changes shapes, blur thresholds, and shadow neon halos in real-time as you slide parameters.
+              </p>
+              <button 
+                class="w-full py-2.5 text-xs font-mono-hud rounded-lg font-bold tracking-widest text-slate-950 transition-all active:scale-95  "
+                :style="`
+                  background: linear-gradient(135deg, hsl(${hueVal}, 90%, 55%) 0%, hsl(${(parseInt(hueVal) + 50) % 360}, 90%, 55%) 100%);
+                  box-shadow: 0 0 12px hsla(${hueVal}, 90%, 55%, 0.3);
+                `"
+              >
+                COMPILE COMPONENT
+              </button>
+            </div>
+          </div>
+
+          <!-- Real-Time Compiled CSS Code Block Output -->
+          <div class="glass-hud-panel rounded-3xl p-6 flex flex-col justify-between overflow-hidden">
+            <div class="flex justify-between items-center border-b border-brand-border/40 pb-2">
+              <span class="font-mono-hud text-[9px] text-slate-500">// COMPILED_CSS_CODEX</span>
+              <button 
+                @click="copyCSS()"
+                class="px-4 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-brand-border rounded-xl text-[9px] font-mono-hud tracking-wider text-slate-300 hover:text-white transition-all  "
+              >
+                COPY CODEX
+              </button>
+            </div>
+
+            <!-- CSS Code Output block -->
+            <pre 
+              id="codex-code-output"
+              class="flex-grow font-mono-hud text-[10px] text-slate-400 overflow-y-auto py-4 pr-2 select-text"
+              x-text="`
+.codex-hologram-panel {
+  border-radius: ${radiusVal}px;
+  background: hsla(${hueVal}, 25%, 8%, 0.55);
+  border: 1px solid hsla(${hueVal}, 90%, 55%, 0.18);
+  backdrop-filter: blur(${blurVal}px);
+  -webkit-backdrop-filter: blur(${blurVal}px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 
+              0 0 ${glowVal}px hsla(${hueVal}, 90%, 55%, 0.25);
+}`"
+            ></pre>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <!-- WebGL, GSAP, and Custom interactive Scripts -->
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // 1. Lenis Smooth Scroll Initialization
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smooth: true
+    });
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add((time) => {
+      lenis.raf(time * 1000);
+    });
+    gsap.ticker.lagSmoothing(0);
+
+
+
+    // 3. Dynamic SVG Waveform Line Generator
+    const path = document.getElementById('hud-wave-path');
+    let points = Array(20).fill(40);
+    setInterval(() => {
+      points.shift();
+      const scaleFactor = (window.speechSynthesis.speaking) ? 28 : 8;
+      points.push(40 + (Math.random() - 0.5) * scaleFactor);
+      
+      const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${i * 10.5} ${p}`).join(' ');
+      path.setAttribute('d', d);
+      
+      const alpine = document.querySelector('[x-data]').__x.$data;
+      path.setAttribute('stroke', alpine.activeColor);
+    }, 80);
+
+    // 4. Interactive Node Canvas Grid (Section 2)
+    const nodeCanvas = document.getElementById('node-map-canvas');
+    const ctx = nodeCanvas.getContext('2d');
+    
+    // Resize canvas
+    const resizeNodeCanvas = () => {
+      nodeCanvas.width = nodeCanvas.clientWidth;
+      nodeCanvas.height = nodeCanvas.clientHeight;
+    };
+    window.addEventListener('resize', resizeNodeCanvas);
+    resizeNodeCanvas();
+
+    // Node particles pool
+    const nodeParticles = [];
+    const maxDistance = 120;
+    let mousePos = { x: null, y: null };
+
+    class NodeParticle {
+      constructor(x, y) {
+        this.x = x || Math.random() * nodeCanvas.width;
+        this.y = y || Math.random() * nodeCanvas.height;
+        this.vx = (Math.random() - 0.5) * 0.8;
+        this.vy = (Math.random() - 0.5) * 0.8;
+        this.radius = 3 + Math.random() * 2;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        // Bounce off canvas boundaries
+        if (this.x < 0 || this.x > nodeCanvas.width) this.vx *= -1;
+        if (this.y < 0 || this.y > nodeCanvas.height) this.vy *= -1;
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.8)';
+        ctx.fill();
+        
+        // Glow layer
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = '#06b6d4';
+      }
+    }
+
+    // Initialize 16 start nodes
+    for(let i=0; i<16; i++) {
+      nodeParticles.push(new NodeParticle());
+    }
+
+    // Canvas Mouse interaction
+    nodeCanvas.addEventListener('mousemove', (e) => {
+      const rect = nodeCanvas.getBoundingClientRect();
+      mousePos.x = e.clientX - rect.left;
+      mousePos.y = e.clientY - rect.top;
+    });
+    nodeCanvas.addEventListener('mouseleave', () => {
+      mousePos.x = null;
+      mousePos.y = null;
+    });
+
+    // Spawn node on click
+    nodeCanvas.addEventListener('click', (e) => {
+      const rect = nodeCanvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      nodeParticles.push(new NodeParticle(clickX, clickY));
+      
+      // Update HUD count
+      document.getElementById('hud-total-nodes').innerText = nodeParticles.length;
+      
+      // Flash glowing core in Three.js
+      updateWebGLParams(0.08, 0x06b6d4, 1.5);
+      setTimeout(() => updateWebGLParams(0.015, 0x06b6d4, 1.0), 300);
+    });
+
+    // Animation Loop for Node Canvas
+    const drawNodeGrid = () => {
+      ctx.clearRect(0, 0, nodeCanvas.width, nodeCanvas.height);
+      ctx.shadowBlur = 0; // reset glow
+
+      // Draw grid lines in canvas background
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+      ctx.lineWidth = 0.5;
+      const gridGap = 30;
+      for (let x = 0; x < nodeCanvas.width; x += gridGap) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, nodeCanvas.height); ctx.stroke();
+      }
+      for (let y = 0; y < nodeCanvas.height; y += gridGap) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(nodeCanvas.width, y); ctx.stroke();
+      }
+
+      // Update and draw particles
+      nodeParticles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+
+      // Draw vector lines between nearby particles
+      ctx.lineWidth = 0.6;
+      ctx.shadowBlur = 0;
+      for(let i = 0; i < nodeParticles.length; i++) {
+        for(let j = i + 1; j < nodeParticles.length; j++) {
+          const dx = nodeParticles[i].x - nodeParticles[j].x;
+          const dy = nodeParticles[i].y - nodeParticles[j].y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < maxDistance) {
+            const alpha = (1 - (dist / maxDistance)) * 0.25;
+            ctx.strokeStyle = `rgba(6, 182, 212, ${alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(nodeParticles[i].x, nodeParticles[i].y);
+            ctx.lineTo(nodeParticles[j].x, nodeParticles[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw vector lines to cursor position if close
+      if (mousePos.x !== null) {
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = '#06b6d4';
+        nodeParticles.forEach(p => {
+          const dx = p.x - mousePos.x;
+          const dy = p.y - mousePos.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 150) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(mousePos.x, mousePos.y);
+            ctx.stroke();
+          }
+        });
+      }
+
+      requestAnimationFrame(drawNodeGrid);
+    };
+    drawNodeGrid();
+
+    // 5. Audio Visualizer for System Log Playback (Section 3)
+    const audioCanvas = document.getElementById('audio-log-visualizer');
+    const audioCtx = audioCanvas.getContext('2d');
+    
+    const resizeAudioCanvas = () => {
+      audioCanvas.width = audioCanvas.clientWidth;
+      audioCanvas.height = audioCanvas.clientHeight;
+    };
+    window.addEventListener('resize', resizeAudioCanvas);
+    resizeAudioCanvas();
+
+    let visualizerPulsePower = 0;
+    const triggerVisualizerPulse = (power) => {
+      visualizerPulsePower = power;
+    };
+
+    const drawAudioVisualizer = () => {
+      audioCtx.clearRect(0, 0, audioCanvas.width, audioCanvas.height);
+      const barWidth = 3;
+      const barGap = 6;
+      const barCount = Math.floor(audioCanvas.width / (barWidth + barGap));
+      
+      audioCtx.shadowBlur = 10;
+      audioCtx.shadowColor = '#8b5cf6'; // Purple visualizer glow
+
+      const time = Date.now() * 0.005;
+      
+      // Decay visualizer pulse power over time
+      if (visualizerPulsePower > 0) visualizerPulsePower *= 0.96;
+
+      for(let i=0; i<barCount; i++) {
+        // Base sine wave wave height
+        const waveScale = window.speechSynthesis.speaking ? 45 : 3;
+        const height = Math.abs(Math.sin(i * 0.15 + time)) * waveScale + (Math.random() * visualizerPulsePower * 0.5);
+        
+        const x = i * (barWidth + barGap);
+        const y = (audioCanvas.height / 2) - (height / 2);
+        
+        // Gradient color for bars
+        const grad = audioCtx.createLinearGradient(x, y, x, y + height);
+        grad.addColorStop(0, '#a855f7');
+        grad.addColorStop(1, '#06b6d4');
+        
+        audioCtx.fillStyle = grad;
+        audioCtx.fillRect(x, y, barWidth, height);
+      }
+
+      requestAnimationFrame(drawAudioVisualizer);
+    };
+    drawAudioVisualizer();
+
+    // 6. Three.js GPU Hologram Particle Core Setup
+    const canvas = document.getElementById('webgl-canvas');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // Multi-Layer core geometry
+    // Layer 1: Solid wireframe core sphere
+    const coreGeo = new THREE.IcosahedronGeometry(2.0, 3);
+    const originalPositions = coreGeo.clone().attributes.position;
+    const tempVertex = new THREE.Vector3();
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: 0x06b6d4,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.18
+    });
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    scene.add(coreMesh);
+
+    // Layer 2: Particle Cloud orbit
+    const particleCount = 1800;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+
+    for(let i = 0; i < particleCount * 3; i += 3) {
+      const u = Math.random();
+      const v = Math.random();
+      const theta = u * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * v - 1.0);
+      const r = 2.2 + Math.random() * 0.8; // Orbit shell thickness
+
+      positions[i] = r * Math.sin(phi) * Math.cos(theta);
+      positions[i+1] = r * Math.sin(phi) * Math.sin(theta);
+      positions[i+2] = r * Math.cos(phi);
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const particleMat = new THREE.PointsMaterial({
+      size: 0.016,
+      color: 0x06b6d4,
+      transparent: true,
+      opacity: 0.75,
+      blending: THREE.AdditiveBlending
+    });
+
+    const particles = new THREE.Points(geometry, particleMat);
+    scene.add(particles);
+
+    // Layer 3: Dynamic Orbit Rings
+    const ringGeo = new THREE.RingGeometry(3.1, 3.14, 64);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x06b6d4,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.25
+    });
+    const ring1 = new THREE.Mesh(ringGeo, ringMat);
+    const ring2 = new THREE.Mesh(ringGeo, ringMat);
+    ring1.rotation.x = Math.PI / 2.3;
+    ring2.rotation.y = Math.PI / 3.5;
+    scene.add(ring1);
+    scene.add(ring2);
+
+    camera.position.z = 7;
+
+    // Direct WebGL Parameter modifier with transition
+    let rotationSpeed = 0.015;
+    let targetScale = 1.0;
+
+    function updateWebGLParams(speed, hexColor, scale) {
+      rotationSpeed = speed;
+      targetScale = scale;
+      
+      const newColor = new THREE.Color(hexColor);
+      gsap.to(coreMat.color, { r: newColor.r, g: newColor.g, b: newColor.b, duration: 0.6 });
+      gsap.to(particleMat.color, { r: newColor.r, g: newColor.g, b: newColor.b, duration: 0.6 });
+      gsap.to(ringMat.color, { r: newColor.r, g: newColor.g, b: newColor.b, duration: 0.6 });
+    }
+
+    // Mouse movement track positioning (deeper parallax)
+    let targetX = 0, targetY = 0;
+    window.addEventListener('mousemove', (e) => {
+      targetX = (e.clientX / window.innerWidth - 0.5) * 1.5;
+      targetY = (e.clientY / window.innerHeight - 0.5) * 1.5;
+    });
+
+    // Main animation loop
+    const animate = () => {
+      const time = clock.getElapsedTime();
+      
+      // Calculate dynamic pulse based on voice / speaking status
+      const isSpeaking = window.speechSynthesis.speaking;
+      const voicePulse = isSpeaking ? (Math.abs(Math.sin(time * 18)) * 0.28) : 0;
+      
+      // Morph Core Geometry organically over time (organic liquid behavior)
+      const positionAttribute = coreGeo.attributes.position;
+      for (let i = 0; i < positionAttribute.count; i++) {
+        tempVertex.fromBufferAttribute(originalPositions, i);
+        const wave = Math.sin(tempVertex.x * 2.5 + time * 3.5) * 0.15 + Math.cos(tempVertex.y * 2.5 + time * 2.5) * 0.15;
+        tempVertex.addScaledVector(tempVertex.clone().normalize(), wave);
+        positionAttribute.setXYZ(i, tempVertex.x, tempVertex.y, tempVertex.z);
+      }
+      coreGeo.computeVertexNormals();
+      positionAttribute.needsUpdate = true;
+
+      // Rotate core elements
+      coreMesh.rotation.y = time * rotationSpeed;
+      coreMesh.rotation.x = time * (rotationSpeed * 0.5);
+      particles.rotation.y = -time * (rotationSpeed * 0.7);
+
+      // Rotate HUD outer rings
+      ring1.rotation.z = time * 0.1;
+      ring2.rotation.z = -time * 0.08;
+
+      // Apply dynamic scale
+      const currentScale = targetScale + voicePulse + Math.sin(time * 2.5) * 0.05;
+      coreMesh.scale.set(currentScale, currentScale, currentScale);
+      particles.scale.set(currentScale, currentScale, currentScale);
+
+      // Mouse spring track camera
+      camera.position.x += (targetX - camera.position.x) * 0.06;
+      camera.position.y += (-targetY - camera.position.y) * 0.06;
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    };
+    animate();
+
+    // Resize Event
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // 3D Tilt Entrance fold-in animation (Awwwards look)
+    window.addEventListener('DOMContentLoaded', () => {
+      gsap.from(".glass-hud-panel", {
+        y: 100,
+        rotationX: 12,
+        transformOrigin: "50% 100%",
+        opacity: 0,
+        duration: 1.4,
+        stagger: 0.12,
+        ease: "power4.out"
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# python virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# next.js build and cache
+.next/
+out/
+build/
+
+# database and logs
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.log*
+.agents/preview.log
+.agents/preview.pid
+
+# local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# secrets and local config
+backend/settings.json
+reddit_sample.html

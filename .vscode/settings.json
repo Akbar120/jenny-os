@@ -1,0 +1,15 @@
+{
+    "git.ignoreLimitWarning": true,
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/*/**": true,
+        "**/.next/**": true,
+        "**/.venv/**": true,
+        "**/.pytest_cache/**": true,
+        "**/__pycache__/**": true,
+        "**/*.db*": true,
+        "**/*.log*": true,
+        "**/.agents/**": true
+    }
+}
