@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>JEJU ISLAND RAID — Solo Leveling</title>
+  <meta name="description" content="Play as Sung Jin-Woo in the Jeju Island Raid. Shadow Army, Ant King boss, God of War style 3rd person." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=JetBrains+Mono:wght@400;500&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    #boot-error {
+      display: none; position: fixed; bottom: 12px; left: 12px; right: 12px; z-index: 99999;
+      background: #1a0510; border: 1px solid #ff2d55; color: #ff8aa0;
+      padding: 12px 16px; font: 12px/1.45 'JetBrains Mono', monospace;
+      max-height: 35vh; overflow: auto; white-space: pre-wrap;
+    }
+    #boot-error.show { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  <div id="cursor"></div>
+  <div id="cursor-dot"></div>
+  <div id="hit-vignette"></div>
+  <div id="low-hp"></div>
+  <div id="letterbox"></div>
+  <div id="dmg-layer"></div>
+  <div id="boot-error"></div>
+
+  <!-- TITLE -->
+  <div id="title-screen" class="screen">
+    <div class="screen-particles" id="screen-particles"></div>
+    <div class="title-mark">SOLO LEVELING  ·  S-RANK GATE</div>
+    <h1 class="main-title">JEJU ISLAND<br/>RAID</h1>
+    <div class="sub-title">Arise from the Shadow</div>
+    <p class="blurb">
+      The fourth joint raid has collapsed. Korea's S-Rank hunters are dying inside the nest.
+      As <b style="color:#c4a0ff">Sung Jin-Woo</b>, Shadow Monarch, you shadow-exchange onto Jeju Island
+      to face the hidden boss — the <b style="color:#ff2d55">Ant King</b> — and claim him as <b style="color:#a855f7">Beru</b>.
+    </p>
+    <div class="btn-row">
+      <button class="btn" id="btn-start" type="button">Enter the Gate</button>
+      <button class="btn secondary" id="btn-how" type="button">Operations Brief</button>
+    </div>
+    <div id="how-panel" class="hidden" style="margin-top:24px;max-width:560px;padding:18px 22px;background:rgba(8,10,20,0.85);border:1px solid rgba(123,47,255,0.3);font-size:13px;line-height:1.7;color:#a0a4b8;text-align:left">
+      <b style="color:#f5c542">CONTROLS</b><br/>
+      <span style="color:#e8eaf2">WASD</span> Move · <span style="color:#e8eaf2">Mouse</span> Look (click game) · <span style="color:#e8eaf2">LMB</span> Attack<br/>
+      <span style="color:#e8eaf2">1</span> Mutilation · <span style="color:#e8eaf2">2</span> Dagger Rush · <span style="color:#e8eaf2">3</span> Bloodlust<br/>
+      <span style="color:#e8eaf2">4</span> Ruler's Authority · <span style="color:#e8eaf2">5</span> Monarch's Domain<br/>
+      <span style="color:#e8eaf2">Q</span> Quicksilver · <span style="color:#e8eaf2">E</span> Stealth · <span style="color:#e8eaf2">R</span> Shadow Exchange · <span style="color:#e8eaf2">F</span> ARISE<br/>
+      <b style="color:#a855f7">CAMERA</b> God of War style over-shoulder 3rd person. Scroll to zoom.
+    </div>
+    <div class="lore-panel">
+      <span><b>GATE</b> Jeju Island S-Rank</span>
+      <span><b>PLAYER</b> Sung Jin-Woo · Lv.100</span>
+      <span><b>THREAT</b> Ant King</span>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loading-screen" class="screen hidden">
+    <div class="title-mark">SYSTEM</div>
+    <h2 class="main-title" style="font-size:clamp(1.5rem,4vw,2.5rem)">SHADOW EXCHANGE</h2>
+    <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+    <div id="loading-text">Initializing...</div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="top-bar">
+      <div class="mission-badge hud-panel">
+        <div class="label">MISSION</div>
+        <div class="name">Jeju Island Raid</div>
+        <div class="phase" id="phase-label">Beach Assault</div>
+      </div>
+      <div class="stat-cluster">
+        <div class="mini-stat hud-panel"><div class="v" id="kill-count">0</div><div class="l">KILLS</div></div>
+        <div class="mini-stat hud-panel"><div class="v" id="shadow-count">0</div><div class="l">SHADOWS</div></div>
+      </div>
+    </div>
+    <div id="boss-bar" class="hud-panel">
+      <div class="boss-name-row">
+        <span class="boss-name">ANT KING</span>
+        <span class="boss-tag" id="boss-hp-text">—</span>
+      </div>
+      <div class="boss-track"><div class="boss-fill" id="boss-fill"></div></div>
+      <div class="boss-phase-pips"><span class="active"></span><span></span><span></span></div>
+    </div>
+    <div id="objective"></div>
+    <div id="story-banner"><div class="chapter"></div><div class="line"></div><div class="sub"></div></div>
+    <div id="ally-panel" class="hud-panel">
+      <div class="ally-title">KOREAN RAID PARTY</div>
+      <div id="ally-list"></div>
+    </div>
+    <div id="minimap" class="hud-panel">
+      <canvas id="minimap-canvas" width="140" height="140"></canvas>
+      <div class="mm-label">JEJU · N↑</div>
+    </div>
+    <div id="kill-feed"></div>
+    <div id="combo-display"><div class="count">0</div><div class="label">COMBO</div></div>
+    <div id="crosshair"><i></i><i></i><i></i><i></i></div>
+    <div id="vitals" class="hud-panel">
+      <div class="player-row">
+        <div class="avatar-ring">SJ</div>
+        <div class="player-meta">
+          <div class="name">Sung Jin-Woo</div>
+          <div class="rank">SHADOW MONARCH</div>
+          <div class="level" id="level-num">Lv. 100</div>
+        </div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-line"><span class="tag">HP</span><div class="bar-track"><div class="bar-fill hp" id="hp-fill"></div></div><span class="num" id="hp-num">4500</span></div>
+        <div class="bar-line"><span class="tag">MP</span><div class="bar-track"><div class="bar-fill mp" id="mp-fill"></div></div><span class="num" id="mp-num">2800</span></div>
+      </div>
+    </div>
+    <div id="skill-bar" class="hud-panel">
+      <div class="skill-slot" data-skill="mutilation"><div class="icon">⚔</div><div class="key">1</div><div class="cd-overlay"></div><div class="name-tip">Mutilation</div></div>
+      <div class="skill-slot" data-skill="daggerRush"><div class="icon">🗡</div><div class="key">2</div><div class="cd-overlay"></div><div class="name-tip">Dagger Rush</div></div>
+      <div class="skill-slot" data-skill="bloodlust"><div class="icon">👁</div><div class="key">3</div><div class="cd-overlay"></div><div class="name-tip">Bloodlust</div></div>
+      <div class="skill-slot" data-skill="rulersAuthority"><div class="icon">✋</div><div class="key">4</div><div class="cd-overlay"></div><div class="name-tip">Ruler's Authority</div></div>
+      <div class="skill-slot" data-skill="monarchDomain"><div class="icon">👑</div><div class="key">5</div><div class="cd-overlay"></div><div class="name-tip">Monarch's Domain</div></div>
+      <div class="skill-slot" data-skill="quicksilver"><div class="icon">⚡</div><div class="key">Q</div><div class="cd-overlay"></div><div class="name-tip">Quicksilver</div></div>
+      <div class="skill-slot" data-skill="stealth"><div class="icon">👤</div><div class="key">E</div><div class="cd-overlay"></div><div class="name-tip">Stealth</div></div>
+      <div class="skill-slot" data-skill="shadowExchange"><div class="icon">🌀</div><div class="key">R</div><div class="cd-overlay"></div><div class="name-tip">Shadow Exchange</div></div>
+      <div class="skill-slot" data-skill="arise"><div class="icon">🌑</div><div class="key">F</div><div class="cd-overlay"></div><div class="name-tip">ARISE</div></div>
+    </div>
+    <div id="shadow-tray" class="hud-panel">
+      <div class="shadow-tray-title">SHADOW ARMY</div>
+      <div class="shadow-list" id="shadow-list"></div>
+    </div>
+    <div id="interact-prompt"></div>
+    <div id="controls-help">
+      <div><kbd>WASD</kbd> Move · <kbd>LMB</kbd> Attack · <kbd>1-5</kbd> Skills</div>
+      <div><kbd>Q</kbd> Speed · <kbd>E</kbd> Stealth · <kbd>R</kbd> Teleport · <kbd>F</kbd> Arise</div>
+    </div>
+    <div id="system-msg">
+      <div class="sys-label">— SYSTEM —</div>
+      <div class="sys-body"></div>
+      <div class="sys-sub"></div>
+    </div>
+  </div>
+
+  <div id="arise-overlay">
+    <div class="arise-word">ARISE</div>
+    <div class="arise-sub">SHADOW EXTRACTION</div>
+  </div>
+
+  <div id="overlay-menu">
+    <h2>PAUSED</h2>
+    <p style="color:var(--muted);margin-bottom:8px;letter-spacing:0.15em;font-size:13px">JEJU ISLAND S-RANK GATE</p>
+    <button class="btn" id="btn-resume" type="button">Resume Raid</button>
+    <button class="btn secondary" id="btn-restart" type="button">Restart</button>
+    <button class="btn secondary" id="btn-title" type="button">Title Screen</button>
+  </div>
+
+  <div id="victory-screen" class="screen hidden">
+    <div class="title-mark">GATE CLEARED</div>
+    <h1 class="main-title" style="font-size:clamp(2rem,6vw,4rem)">JEJU ISLAND<br/>RECLAIMED</h1>
+    <div class="sub-title">The Shadow Monarch Prevails</div>
+    <div id="victory-stats" class="blurb" style="text-align:center;line-height:2"></div>
+    <div class="btn-row"><button class="btn" id="btn-victory-again" type="button">Raid Again</button></div>
+  </div>
+
+  <div id="defeat-screen" class="screen hidden">
+    <div class="title-mark">RAID FAILED</div>
+    <h1 class="main-title" style="font-size:clamp(2rem,5vw,3.5rem);background:linear-gradient(180deg,#fff,#ff2d55);-webkit-background-clip:text;background-clip:text;color:transparent">YOU HAVE FALLEN</h1>
+    <p class="blurb">Even the Shadow Monarch can be overwhelmed. Rise again.</p>
+    <div class="btn-row"><button class="btn danger" id="btn-defeat-again" type="button">Try Again</button></div>
+  </div>
+
+  <div id="touch-controls">
+    <div class="stick-zone"><div class="stick-knob"></div></div>
+    <div class="atk-btn">ATK</div>
+    <div class="sk-btn" data-skill="mutilation" style="bottom:120px;right:40px">1</div>
+    <div class="sk-btn" data-skill="daggerRush" style="bottom:120px;right:100px">2</div>
+    <div class="sk-btn" data-skill="monarchDomain" style="bottom:170px;right:70px">5</div>
+    <div class="sk-btn" data-skill="shadowExchange" style="bottom:90px;right:160px">R</div>
+    <div class="sk-btn" data-skill="arise" style="bottom:170px;right:130px">F</div>
+  </div>
+
+  <!-- LOCAL Three.js first (offline-safe). CDN fallbacks if local missing. -->
+  <script src="vendor/three.min.js"></script>
+  <script>
+  (function () {
+    function showErr(msg) {
+      var el = document.getElementById('boot-error');
+      if (!el) return;
+      el.className = 'show';
+      el.textContent = (el.textContent ? el.textContent + '\n' : '') + String(msg);
+      console.error(msg);
+    }
+    window.addEventListener('error', function (e) {
+      showErr((e.message || e) + (e.filename ? ' @ ' + e.filename + ':' + e.lineno : ''));
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      showErr('Promise: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+    });
+
+    function loadScript(src) {
+      return new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.async = false;
+        s.onload = function () { resolve(src); };
+        s.onerror = function () { reject(new Error('Failed to load ' + src)); };
+        document.head.appendChild(s);
+      });
+    }
+
+    function ensureThree() {
+      if (window.THREE) return Promise.resolve('local/cached');
+      // Fallbacks if vendor/three.min.js 404'd
+      var urls = [
+        'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
+        'https://unpkg.com/three@0.128.0/build/three.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'
+      ];
+      var i = 0;
+      function next() {
+        if (i >= urls.length) return Promise.reject(new Error('Could not load Three.js from any source'));
+        return loadScript(urls[i++]).then(function () {
+          if (window.THREE) return urls[i - 1];
+          return next();
+        }).catch(function () { return next(); });
+      }
+      return next();
+    }
+
+    window.__JEJU_BOOT__ = ensureThree().then(function (src) {
+      console.log('[Jeju] THREE ready via', src, 'r?', window.THREE && window.THREE.REVISION);
+      return Promise.all([
+        loadScript('js/models.js'),
+        loadScript('js/vfx.js'),
+        loadScript('js/entities.js')
+      ]).then(function () {
+        return loadScript('js/game.js');
+      });
+    }).catch(function (err) {
+      showErr('BOOT FAILED: ' + err.message + '\n\nFix: serve this folder with a local server:\n  python -m http.server 8080\nThen open http://localhost:8080');
+      var t = document.getElementById('loading-text');
+      if (t) t.textContent = 'Boot failed — see error bar';
+      throw err;
+    });
+  })();
+  </script>
+</body>
+</html>
